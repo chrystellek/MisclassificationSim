@@ -40,6 +40,7 @@ Figure1b <- sp1 + labs(title = "Original scenario (n = 100)", x = "True Value", 
 # Figure1b
 ```
 
+Want to create scatter plots for each distribution... need to create for each SD 
 ```{r scatterplots1}
 # A. a = -4.5, b = 0.0019 
 pop1 <- tibble(
@@ -99,10 +100,7 @@ pop$expected_pD_quad <- 6.592 - 0.00673*E + 0.00000172*(E**2)
 
 # Figure 3:
 ggplot(pop, aes(x = E)) + geom_line(aes(y = expected_pD_quad)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 3. Prob of misclassification (dashed) & prob of disease, quadratic term (solid)", x = "True Value", y = "Probability")
-```
 
-
-```{r probmis}
 # probability of misclassification, varied SD to match simulation conditions
 pop$a100 <- 1 - pnorm(E_diff, 0, 100)
 pop$a300 <- 1 - pnorm(E_diff, 0, 300)
@@ -128,11 +126,11 @@ Function arguments are:
 * a, b parameters for the linear logistic probability of disease  
 * sigma standard deviation of measurement error  
 
-```{r function}
-flegal_sim <- function(N, min, max, cutpt, a, b, sigma, sims){
-# True exposure
-E <- seq(from = min, to = max, length.out = N) 
+```{r flegalfunction}
+Nsigma <- 3 # number of measurement error SD values
+MEsigma <- c(100, 300, 500) # values of measurement errors 
 
+flegal_sim <- function(N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, sims){
   # initialize variables that we want to keep
   Se_all <- c()
   Se_D1 <- c()
@@ -143,34 +141,38 @@ E <- seq(from = min, to = max, length.out = N)
   RR_true <- c()
   RR_obs <- c()
   
-  for (i in 1:sims){
-  # set up
-    Eerror <- rnorm(N, mean = 0, sd = sigma)
-    Eprime <- E + Eerror
-    E_high <- ifelse(E > cutpt, 1, 0)
-    Eprime_high <- ifelse(Eprime > cutpt,1, 0)
-    D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-    
-  # storing Se, Sp, RR values for each simulation
-    Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
-    Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
-    Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
-    
-    Sp_all[i] <- sum(Eprime_high==0 & E_high==0)/sum(E_high==0)
-    Sp_D1[i] <- sum(Eprime_high[D==1]==0 & E_high[D==1]==0)/sum(E_high[D==1]==0)
-    Sp_D0[i] <- sum(Eprime_high[D==0]==0 & E_high[D==0]==0)/sum(E_high[D==0]==0)
-    
-    RR_true[i] <- ((sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0)))
-    RR_obs[i] <- ((sum(D==1 & Eprime_high==1)/sum(Eprime_high==1))/(sum(D==1 & Eprime_high==0)/sum(Eprime_high==0)))
-  }
+    # fixed exposure values and disease status. Not sure whether to use runif vs. seq 
+  E <- as.integer(seq(from = 1600, to = 2499, length.out = N))
+  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
   
-  params <- data.frame(N, cutpt, a, b, sims, sigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true), mean(RR_obs))
+  for (j in 1:Nsigma){
+    MEsigma <- MEsigma[j]
   
-  colnames(params) <- c("N", "cutoff", "a", "b", "sim", "SD", "Se all", "Se D=1", "Se D=0", "Sp all", "Sp D=1", "Sp D=0", "RR true", "RR obs")
+    for (i in 1:Nsims){
+      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+      Eprime <- E + Eerror
+      E_high <- ifelse(E > cutpt, 1, 0)
+      Eprime_high <- ifelse(Eprime > cutpt, 1, 0)
+    
+      Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
+      Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
+      Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
+      
+      Sp_all[i] <- sum(Eprime_high==0 & E_high==0)/sum(E_high==0)
+      Sp_D1[i] <- sum(Eprime_high[D==1]==0 & E_high[D==1]==0)/sum(E_high[D==1]==0)
+      Sp_D0[i] <- sum(Eprime_high[D==0]==0 & E_high[D==0]==0)/sum(E_high[D==0]==0)
+      
+      # based on equations from Flegal appendix. 
+      RR_true[i] <- ((sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0)))
+      RR_obs[i] <- ((sum(D==1 & Eprime_high==1)/sum(Eprime_high==1))/(sum(D==1 & Eprime_high==0)/sum(Eprime_high==0)))
+      }
+      params <- data.frame(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true), mean(RR_obs))
+    }
+    colnames(params) <- c("N", "cutoff", "a", "b", "sim", "SD", "Se all", "Se D=1", "Se D=0", "Sp all", "Sp D=1", "Sp D=0", "RR true", "RR obs")
   return(params)
 }
 ```
-
+Note about the RR calculations; they don't include whole population, but maybe that is similar to what one would measure irl? 
 
 ##### CASE 1  
 
@@ -187,27 +189,20 @@ set.seed(30308)
 # A, B, C reflect the different regression models/ RR 
 # case 1 is repeating the simulations from the paper 
 # A. a = -4.5, b = 0.0019 
-scenarioA1_100 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 100, 200)
-scenarioA1_300 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 300, 200)
-scenarioA1_500 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 500, 200)
+case1A_100 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 100, 200)
+case1A_300 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 300, 200)
+case1A_500 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 500, 200)
 # B. a = -8.0, b = 0.0035
-scenarioB1_100 <- flegal_sim(200, 1600, 2499, 2200, -8.0, 0.0035, 100, 200)
-scenarioB1_300 <- flegal_sim(200, 1600, 2499, 2200, -8.0, 0.0035, 300, 200)
-scenarioB1_500 <- flegal_sim(200, 1600, 2499, 2200, -8.0, 0.0035, 500, 200)
+case1B_100 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 100, 200)
+case1B_300 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 300, 200)
+case1B_500 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 500, 200)
 # C. a = -16.0, b = 0.0072
-scenarioC1_100 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 100, 200)
-scenarioC1_300 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 300, 200)
-scenarioC1_500 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 500, 200)
+case1C_100 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 100, 200)
+case1C_300 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 300, 200)
+case1C_500 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 500, 200)
 
-case1 <- rbind(scenarioA1_100, scenarioA1_300, scenarioA1_500, scenarioB1_100, scenarioB1_300, scenarioB1_500, scenarioC1_100, scenarioC1_300, scenarioC1_500)
-# table2 <- table2[, c(1,2,5,3,6,4,7,8)]
-
-
-# case1
+case1 <- rbind(case1A_100, case1A_300, case1A_500, case1B_100, case1B_300, case1B_500, case1C_100, case1C_300, case1C_500)
 ```
-The Se & Sp values look close to the original - the expected RR is not quite the same though. Not sure if that is because of rounding of a, b?  
-
-The simulation uses three different SD's - should I plot those out as in Fig 2?  
 
 
 ##### CASE 2  
@@ -217,90 +212,48 @@ Repeating the same but with 1000 simulations. Everything else is same.
 # Function arguments are: sample size, a, b, standard deviation of measurement error, and number of simulations
 # first digit is combination of a,b & second digit is SD
 # 1. a = -4.5, b = 0.0019 
-scenarioA2_100 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 100, 1000)
-scenarioA2_300 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 300, 1000)
-scenarioA2_500 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 500, 1000)
+case2A_100 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 100, 1000)
+case2A_300 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 300, 1000)
+case2A_500 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 500, 1000)
 # 2. a = -8.0, b = 0.0035
-scenarioB2_100 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 100, 1000)
-scenarioB2_300 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 300, 1000)
-scenarioB2_500 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 500, 1000)
+case2B_100 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 100, 1000)
+case2B_300 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 300, 1000)
+case2B_500 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 500, 1000)
 # 3. a = -16.0, b = 0.0072
-scenarioC2_100 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 100, 1000)
-scenarioC2_300 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 300, 1000)
-scenarioC2_500 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 500, 1000)
+case2C_100 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 100, 1000)
+case2C_300 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 300, 1000)
+case2C_500 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 500, 1000)
 
-case2 <- rbind(scenarioA2_100, scenarioA2_300, scenarioA2_500, scenarioB2_100, scenarioB2_300, scenarioB2_500, scenarioC2_100, scenarioC2_300, scenarioC2_500)
-# case2
+case2 <- rbind(case2A_100, case2A_300, case2A_500, case2B_100, case2B_300, case2B_500, case2C_100, case2C_300, case2C_500)
 ```
 When we increase the simulations, the trends still hold. 
 
 
-
-Let's see what the original results and figures would look like with 1000 samples rather than 100, within same range. 
-
-```{r variation1}
-N2 <- 1000 # sample size
-cutpt2 <- 2200
-pop2 <- data.frame(
-  E <- seq(from = 1600, to = 2499, length.out = N2), 
-  Eerror <- rnorm(N2, mean = 0, sd = 150), 
-  Eprime <- E + Eerror, 
-  E_high <- ifelse(E > cutpt2, 1, 0), 
-  Eprime_high <- ifelse(Eprime > cutpt2,1, 0), 
-  E_mis <- ifelse(E_high != Eprime_high, 1, 0),
-  D <- rbinom(n = N2, size = 1, p = plogis(-10 + 0.004*E)) 
-  )
-colnames(pop2) <- c('E', 'Eerror', 'Eprime', 'E_high', 'Eprime_high', 'E_mis','D')
-
-
-# ggplot(pop2, aes(x = E, y = Eprime)) + geom_point() + scale_x_continuous(limits = c(1400, 2600), breaks = seq(1400,2600, 200)) + scale_y_continuous(limits = c(1200, 2800), breaks = seq(1200,2800, 200)) + theme_bw() + labs(title = "Cutpoint of 2,200", x = "True Value", y = "Measured Value") + geom_vline(xintercept = cutpt2) + geom_hline(yintercept = cutpt2, linetype = "dashed")
-
-prob_D2 <- glm(D ~ E, data = pop2, family = binomial)
-expected_pD2 <- predict(prob_D2, pop2, type = "response")
-
-# probability of misclassification
-pop2$E_diff2 <- abs(E-2200)
-pop2$a <- 1 - pnorm(pop2$E_diff2, 0, 150)
-# ggplot(pop, aes(x = E, y = a))+ geom_line() + geom_vline(xintercept = 2200) + theme_bw()
-
-fig1a_1000 <- ggplot(pop2, aes(x = E, y = Eprime)) + geom_point() + scale_x_continuous(limits = c(1400, 2600), breaks = seq(1400,2600, 200)) + scale_y_continuous(limits = c(1200, 2800), breaks = seq(1200,2800, 200)) + theme_bw() + labs(title = "Cutpoint of 2,000", x = "True Value", y = "Measured Value") + geom_vline(xintercept = 2000) + geom_hline(yintercept = 2000, linetype = "dashed") 
-# Figure1a
-
-
-fig1b_1000 <- ggplot(pop2, aes(x = E, y = Eprime)) + geom_point() + scale_x_continuous(limits = c(1400, 2600), breaks = seq(1400,2600, 200)) + scale_y_continuous(limits = c(1200, 2800), breaks = seq(1200,2800, 200)) + theme_bw() + labs(title = "Evenly spaced (N=1000) with cutpoint of 2,200", x = "True Value", y = "Measured Value") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
-
-# Figure1b
-
-# Figure 2
-fig2_1000 <- ggplot(pop2, aes(x = E)) + geom_line(aes(y = expected_pD2)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Case 2. Prob of misclassification (dashed) & prob of disease (solid)", x = "True Value", y = "Probability")
-
-
-```
-
 ##### CASE 3  
 Increasing the number of samples from **100** to **1000*. 
+From here on out, using 1,000 samples and 1,000 simulations.
+
 
 ```{r case3}
 # Function arguments are: sample size, minimum exposure, maximum exposure, cutpoint, a, b, standard deviation of measurement error, and number of simulations
 # N, min, max, cutpt, a, b, sigma, sims
 
 # 1. a = -4.5, b = 0.0019 
-scenarioA3_100 <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 100, 1000)
-scenarioA3_300 <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 300, 1000)
-scenarioA3_500 <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 500, 1000)
+case3A_100 <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 100, 1000)
+case3A_300 <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 300, 1000)
+case3A_500 <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 500, 1000)
 # 2. a = -8.0, b = 0.0035
-scenarioB3_100 <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 100, 1000)
-scenarioB3_300 <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 300, 1000)
-scenarioB3_500 <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 500, 1000)
+case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 100, 1000)
+case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 300, 1000)
+case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 500, 1000)
 # 3. a = -16.0, b = 0.0072
-scenarioC3_100 <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 100, 1000)
-scenarioC3_300 <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 300, 1000)
-scenarioC3_500 <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 500, 1000)
+case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 100, 1000)
+case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 300, 1000)
+case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 500, 1000)
 
-case3 <- rbind(scenarioA3_100, scenarioA3_300, scenarioA3_500, scenarioB3_100, scenarioB3_300, scenarioB3_500, scenarioC3_100, scenarioC3_300, scenarioC3_500)
-# case3
+case3 <- rbind(case3A_100, case3A_300, case3A_500, case3B_100, case3B_300, case3B_500, case3C_100, case3C_300, case3C_500)
 ```
-I exported these and compared in Excel... may eventually create a table in R itself? 
+
 
 ##### CASE 4  
 Now trying to see how the cutpoint is involved... 
@@ -309,34 +262,29 @@ Case 4 changes it from 2,200 to 2,400 so more of the sample are in the 'low' cat
 ```{r case4}
 # Function arguments are: sample size, minimum exposure, maximum exposure, cutpoint, a, b, standard deviation of measurement error, and number of simulations
 # N, min, max, cutpt, a, b, sigma, sims
-
 # A. a = -4.5, b = 0.0019 
-scenarioA4_100 <- flegal_sim(1000, 1600, 2499, 2400, -4.5, 0.0019, 100, 1000)
-scenarioA4_300 <- flegal_sim(1000, 1600, 2499, 2400, -4.5, 0.0019, 300, 1000)
-scenarioA4_500 <- flegal_sim(1000, 1600, 2499, 2400, -4.5, 0.0019, 500, 1000)
+case4A_100 <- flegal_sim(1000, 1600, 2499, 2400, -4.5, 0.0019, 100, 1000)
+case4A_300 <- flegal_sim(1000, 1600, 2499, 2400, -4.5, 0.0019, 300, 1000)
+case4A_500 <- flegal_sim(1000, 1600, 2499, 2400, -4.5, 0.0019, 500, 1000)
 # B. a = -8.0, b = 0.0035
 scenarioB4_100 <- flegal_sim(1000, 1600, 2499, 2400, -8.0, 0.0035, 100, 1000)
 scenarioB4_300 <- flegal_sim(1000, 1600, 2499, 2400, -8.0, 0.0035, 300, 1000)
 scenarioB4_500 <- flegal_sim(1000, 1600, 2499, 2400, -8.0, 0.0035, 500, 1000)
 # C. a = -16.0, b = 0.0072
-scenarioC4_100 <- flegal_sim(1000, 1600, 2499, 2400, -16.0, 0.0072, 100, 1000)
-scenarioC4_300 <- flegal_sim(1000, 1600, 2499, 2400, -16.0, 0.0072, 300, 1000)
-scenarioC4_500 <- flegal_sim(1000, 1600, 2499, 2400, -16.0, 0.0072, 500, 1000)
+case4C_100 <- flegal_sim(1000, 1600, 2499, 2400, -16.0, 0.0072, 100, 1000)
+case4C_300 <- flegal_sim(1000, 1600, 2499, 2400, -16.0, 0.0072, 300, 1000)
+case4C_500 <- flegal_sim(1000, 1600, 2499, 2400, -16.0, 0.0072, 500, 1000)
 
-case4 <- rbind(scenarioA4_100, scenarioA4_300, scenarioA4_500, scenarioB4_100, scenarioB4_300, scenarioB4_500, scenarioC4_100, scenarioC4_300, scenarioC4_500)
-#case4
-
-scenA <- rbind(scenarioA1_100, scenarioA2_100, scenarioA3_100, scenarioA4_100, scenarioA1_300, scenarioA2_300, scenarioA3_300, scenarioA4_300, scenarioA1_500, scenarioA2_500, scenarioA3_500, scenarioA4_500)
-#scenA
+case4 <- rbind(case4A_100, case4A_300, case4A_500, case4B_100, case4B_300, case4B_500, case4C_100, case4C_300, case4C_500)
 ```
 
-##### CASE 5  
 
 What happens if we make exposure normally distributed?  
 
+##### CASE 5  
 New function for normal distribution
 ```{r createnorm}
-normal_sim <- function(N, Emean, Esigma, cutoff, a, b, sigma, sims){
+normal_sim <- function(N, Emean, Esigma, cutoff, a, b, MEsigma, sims){
   
 # initialize variables that we want to keep
   Se_all <- c()
@@ -347,15 +295,16 @@ normal_sim <- function(N, Emean, Esigma, cutoff, a, b, sigma, sims){
   Sp_D0 <- c()
   RR_true <- c()
 
-
-for (i in 1:sims){
+  # have to 'fix' the true exposure value in order to fix the disease status. 
   E <- rnorm(N, mean = Emean, sd = Esigma)
+  D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
+  
+for (i in 1:sims){
   Eerror <- rnorm(N, mean = 0, sd = sigma)
   Eprime <- E + Eerror
   E_high <- ifelse(E > cutoff, 1, 0)
   Eprime_high <- ifelse(Eprime > cutoff,1, 0)
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-# storing Se, Sp, RR values for each simulation
+
   Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
   Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
   Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
@@ -367,159 +316,77 @@ for (i in 1:sims){
   RR_true[i] <- (sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0))
 }
 
-normal_sim_params <- data.frame(N, Emean, Esigma, cutoff, a, b, sims, sigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true))
+normal_sim_params <- tibble(N, Emean, Esigma, cutoff, a, b, sims, sigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true))
 
 colnames(normal_sim_params) <- c("N", "E mean", "E SD", "cutoff", "a", "b", "sim", "SD", "Se all", "Se D=1", "Se D=0", "Sp all", "Sp D=1", "Sp D=0", "RR true")
+
   return(normal_sim_params)
 }
-
-
 ```
 
 
 Previous range is 1,600 to 2,499. What should the mean and standard deviations be? 2050 is the midpoint.  
 If mean = midpoint of 2050, SD of 150 would make most of the values fall within 1,600 - 2,5000 range. 
 Is there reason to believe that the exposure distribution would be affected by probability of disease?   
+
+
 Case 5: Changing the exposure distribution to ~N(2050, 150)    
 ```{r case5}
-N_case5 <- 1000 
-cutpt_5<- 2200
-pop_5 <- data.frame(
-  E <- rnorm(N_case5, mean = 2050, sd = 150),
-  Eerror <- rnorm(N_case5, mean = 0, sd = 150), 
-  Eprime <- E + Eerror, 
-  E_high <- ifelse(E > cutpt_5, 1, 0), 
-  Eprime_high <- ifelse(Eprime > cutpt_5,1, 0), 
-  E_mis <- ifelse(E_high != Eprime_high, 1, 0),
-  D <- rbinom(n = N_case5, size = 1, p = plogis(-10 + 0.004*E)) 
-  )
-colnames(pop_5) <- c('E', 'Eerror', 'Eprime', 'E_high', 'Eprime_high', 'E_mis','D')
-
-prob_D5 <- glm(D ~ E, data = pop_5, family = binomial)
-expected_pD <- predict(prob_D5, pop_5, type = "response")
-
-# probability of misclassification
-pop_5$E_diff <- abs(E-2200)
-pop_5$a <- 1 - pnorm(pop_5$E_diff, 0, 150)
-# ggplot(pop, aes(x = E, y = a))+ geom_line() + geom_vline(xintercept = 2200) + theme_bw()
-
-# Figure 1
-case5fig1 <- ggplot(pop_5, aes(x = E, y = Eprime)) + geom_point() + scale_x_continuous(limits = c(1400, 2600), breaks = seq(1400,2600, 200)) + scale_y_continuous(limits = c(1200, 2800), breaks = seq(1200,2800, 200)) + theme_bw() + labs(title = "Case 5, ~N(2050, 150) and cutpoint of 2,200", x = "True Value", y = "Measured Value") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
-
-# Figure 2
-case5fig2 <- ggplot(pop_5, aes(x = E)) + geom_line(aes(y = expected_pD)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Case 5. Prob of misclassification (dashed) & prob of disease (solid)", x = "True Value", y = "Probability")
-
-
 # function inputs: N, Emean, Esigma, cutoff, a, b, sigma, sims
 # A. a = -4.5, b = 0.0019 
-scenarioA5_100 <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, 100, 1000)
-scenarioA5_300 <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, 300, 1000)
-scenarioA5_500 <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, 500, 1000)
+case5A_100 <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, 100, 1000)
+case5A_300 <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, 300, 1000)
+case5A_500 <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, 500, 1000)
 # B. a = -8.0, b = 0.0035
-scenarioB5_100 <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, 100, 1000)
-scenarioB5_300 <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, 300, 1000)
-scenarioB5_500 <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, 500, 1000)
+case5B_100 <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, 100, 1000)
+case5B_300 <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, 300, 1000)
+case5B_500 <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, 500, 1000)
 # C. a = -16.0, b = 0.0072
-scenarioC5_100 <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, 100, 1000)
-scenarioC5_300 <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, 300, 1000)
-scenarioC5_500 <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, 500, 1000)
+case5C_100 <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, 100, 1000)
+case5C_300 <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, 300, 1000)
+case5C_500 <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, 500, 1000)
 
-case5_1000 <- rbind(scenarioA5_100, scenarioA5_300, scenarioA5_500, scenarioB5_100, scenarioB5_300, scenarioB5_500, scenarioC5_100, scenarioC5_300, scenarioC5_500)
-# case5_1000
+case5 <- rbind(case5A_100, case5A_300, case5A_500, case5B_100, case5B_300, case5B_500, case5C_100, case5C_300, case5C_500)
 ```
 Seems like there is still have some level of differential misclassification, but smaller difference between diseased and non-diseased for both Se and Sp.  
 
 
-Normal distribution around the cutpoint. I think we would then expect more overall misclassification...  
-```{r case6}
-N_case6 <- 1000 
-cutpt_6<- 2200
-pop_6 <- data.frame(
-  E <- rnorm(N_case6, mean = 2200, sd = 150),
-  Eerror <- rnorm(N_case6, mean = 0, sd = 150), 
-  Eprime <- E + Eerror, 
-  E_high <- ifelse(E > cutpt_6, 1, 0), 
-  Eprime_high <- ifelse(Eprime > cutpt_6,1, 0), 
-  E_mis <- ifelse(E_high != Eprime_high, 1, 0),
-  D <- rbinom(n = N_case6, size = 1, p = plogis(-10 + 0.004*E)) 
-  )
-colnames(pop_6) <- c('E', 'Eerror', 'Eprime', 'E_high', 'Eprime_high', 'E_mis','D')
+##### Other ~N
+Case 6: Normal distribution around the cutpoint  
+Case 7: exposure ~N but 'high' is rare
 
-prob_D6 <- glm(D ~ E, data = pop_6, family = binomial)
-expected_pD6 <- predict(prob_D6, pop_6, type = "response")
-
-# probability of misclassification
-pop_6$E_diff <- abs(E-2200)
-pop_6$a <- 1 - pnorm(pop_6$E_diff, 0, 150)
-# ggplot(pop, aes(x = E, y = a))+ geom_line() + geom_vline(xintercept = 2200) + theme_bw()
-
-# Figure 1
-case6fig1 <- ggplot(pop_6, aes(x = E, y = Eprime)) + geom_point() + scale_x_continuous(limits = c(1400, 2600), breaks = seq(1400,2600, 200)) + scale_y_continuous(limits = c(1200, 2800), breaks = seq(1200,2800, 200)) + theme_bw() + labs(title = "Case 6, E ~N(2,200, 150)", x = "True Value", y = "Measured Value") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
-
-
-# CASE 7: rare exposure
-N_case7 <- 1000 
-cutpt_7<- 2200
-pop_7 <- data.frame(
-  E <- rnorm(N_case7, mean = 1900, sd = 150),
-  Eerror <- rnorm(N_case6, mean = 0, sd = 150), 
-  Eprime <- E + Eerror, 
-  E_high <- ifelse(E > cutpt_6, 1, 0), 
-  Eprime_high <- ifelse(Eprime > cutpt_6,1, 0), 
-  E_mis <- ifelse(E_high != Eprime_high, 1, 0),
-  D <- rbinom(n = N_case6, size = 1, p = plogis(-10 + 0.004*E)) 
-  )
-colnames(pop_7) <- c('E', 'Eerror', 'Eprime', 'E_high', 'Eprime_high', 'E_mis','D')
-# ggplot(pop, aes(x = E, y = a))+ geom_line() + geom_vline(xintercept = 2200) + theme_bw()
-
-# Figure 1
-case7fig1 <- ggplot(pop_7, aes(x = E, y = Eprime)) + geom_point() + scale_x_continuous(limits = c(1400, 2600), breaks = seq(1400,2600, 200)) + scale_y_continuous(limits = c(1200, 2800), breaks = seq(1200,2800, 200)) + theme_bw() + labs(title = "Case 7, E ~N(1900, 150)", x = "True Value", y = "Measured Value") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
-
-```
- 
-Case 7: exposure ~N but 'high' is rare. Do this by setting the mean low...
 ```{r case6sim}
-# function inputs: N, Emean, Esigma, cutoff, a, b, sigma, sims
 # A. a = -4.5, b = 0.0019 
-scenarioA6_100 <- normal_sim(1000, 2200, 150, 2200, -4.5, 0.0019, 100, 1000)
-scenarioA6_300 <- normal_sim(1000, 2200, 150, 2200, -4.5, 0.0019, 300, 1000)
-scenarioA6_500 <- normal_sim(1000, 2200, 150, 2200, -4.5, 0.0019, 500, 1000)
+case6A_100 <- normal_sim(1000, 2200, 150, 2200, -4.5, 0.0019, 100, 1000)
+case6A_300 <- normal_sim(1000, 2200, 150, 2200, -4.5, 0.0019, 300, 1000)
+case6A_500 <- normal_sim(1000, 2200, 150, 2200, -4.5, 0.0019, 500, 1000)
 # B. a = -8.0, b = 0.0035
-scenarioB6_100 <- normal_sim(1000, 2200, 150, 2200, -8.0, 0.0035, 100, 1000)
-scenarioB6_300 <- normal_sim(1000, 2200, 150, 2200, -8.0, 0.0035, 300, 1000)
-scenarioB6_500 <- normal_sim(1000, 2200, 150, 2200, -8.0, 0.0035, 500, 1000)
+case6B_100 <- normal_sim(1000, 2200, 150, 2200, -8.0, 0.0035, 100, 1000)
+case6B_300 <- normal_sim(1000, 2200, 150, 2200, -8.0, 0.0035, 300, 1000)
+case6B_500 <- normal_sim(1000, 2200, 150, 2200, -8.0, 0.0035, 500, 1000)
 # C. a = -16.0, b = 0.0072
-scenarioC6_100 <- normal_sim(1000, 2200, 150, 2200, -16.0, 0.0072, 100, 1000)
-scenarioC6_300 <- normal_sim(1000, 2200, 150, 2200, -16.0, 0.0072, 300, 1000)
-scenarioC6_500 <- normal_sim(1000, 2200, 150, 2200, -16.0, 0.0072, 500, 1000)
+case6C_100 <- normal_sim(1000, 2200, 150, 2200, -16.0, 0.0072, 100, 1000)
+case6C_300 <- normal_sim(1000, 2200, 150, 2200, -16.0, 0.0072, 300, 1000)
+case6C_500 <- normal_sim(1000, 2200, 150, 2200, -16.0, 0.0072, 500, 1000)
 
-case6_1000 <- rbind(scenarioA6_100, scenarioA6_300, scenarioA6_500, scenarioB6_100, scenarioB6_300, scenarioB6_500, scenarioC6_100, scenarioC6_300, scenarioC6_500)
-case6_1000
+case6 <- rbind(case6A_100, case6A_300, case6A_500, case6B_100, case6B_300, case6B_500, case6C_100, case6C_300, case6C_500)
+
 
 # rare exposure
-# function inputs: N, Emean, Esigma, cutoff, a, b, sigma, sims
 # A. a = -4.5, b = 0.0019 
-scenarioA7_100 <- normal_sim(1000, 1900, 150, 2200, -4.5, 0.0019, 100, 1000)
-scenarioA7_300 <- normal_sim(1000, 1900, 150, 2200, -4.5, 0.0019, 300, 1000)
-scenarioA7_500 <- normal_sim(1000, 1900, 150, 2200, -4.5, 0.0019, 500, 1000)
+case7A_100 <- normal_sim(1000, 1900, 150, 2200, -4.5, 0.0019, 100, 1000)
+case7A_300 <- normal_sim(1000, 1900, 150, 2200, -4.5, 0.0019, 300, 1000)
+case7A_500 <- normal_sim(1000, 1900, 150, 2200, -4.5, 0.0019, 500, 1000)
 # B. a = -8.0, b = 0.0035
-scenarioB7_100 <- normal_sim(1000, 1900, 150, 2200, -8.0, 0.0035, 100, 1000)
-scenarioB7_300 <- normal_sim(1000, 1900, 150, 2200, -8.0, 0.0035, 300, 1000)
-scenarioB7_500 <- normal_sim(1000, 1900, 150, 2200, -8.0, 0.0035, 500, 1000)
+case7B_100 <- normal_sim(1000, 1900, 150, 2200, -8.0, 0.0035, 100, 1000)
+case7B_300 <- normal_sim(1000, 1900, 150, 2200, -8.0, 0.0035, 300, 1000)
+case7B_500 <- normal_sim(1000, 1900, 150, 2200, -8.0, 0.0035, 500, 1000)
 # C. a = -16.0, b = 0.0072
-scenarioC7_100 <- normal_sim(1000, 1900, 150, 2200, -16.0, 0.0072, 100, 1000)
-scenarioC7_300 <- normal_sim(1000, 1900, 150, 2200, -16.0, 0.0072, 300, 1000)
-scenarioC7_500 <- normal_sim(1000, 1900, 150, 2200, -16.0, 0.0072, 500, 1000)
+case7C_100 <- normal_sim(1000, 1900, 150, 2200, -16.0, 0.0072, 100, 1000)
+case7C_300 <- normal_sim(1000, 1900, 150, 2200, -16.0, 0.0072, 300, 1000)
+case7C_500 <- normal_sim(1000, 1900, 150, 2200, -16.0, 0.0072, 500, 1000)
 
-case6_1000 <- rbind(scenarioA6_100, scenarioA6_300, scenarioA6_500, scenarioB6_100, scenarioB6_300, scenarioB6_500, scenarioC6_100, scenarioC6_300, scenarioC6_500)
-# case6_1000
-
-
-case7_1000 <- rbind(scenarioA7_100, scenarioA7_300, scenarioA7_500, scenarioB7_100, scenarioB7_300, scenarioB7_500, scenarioC7_100, scenarioC7_300, scenarioC7_500)
-
-# case5_1000
-
-
+case7 <- rbind(case7A_100, case7A_300, case7A_500, case7B_100, case7B_300, case7B_500, case7C_100, case7C_300, case7C_500)
 ```
 
 
@@ -535,15 +402,17 @@ uniform_sim <- function(N, Emin, Emax, cutoff, a, b, sigma, sims){
   Sp_D1 <- c()
   Sp_D0 <- c()
   RR_true <- c()
-
-
-for (i in 1:sims){
+  
+  # runif creates diff sample each time? 
   E <- runif(N, min = Emin, max = Emax)
+  D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
+  
+for (i in 1:sims){
   Eerror <- rnorm(N, mean = 0, sd = sigma)
   Eprime <- E + Eerror
   E_high <- ifelse(E > cutoff, 1, 0)
   Eprime_high <- ifelse(Eprime > cutoff,1, 0)
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
+ 
 # storing Se, Sp, RR values for each simulation
   Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
   Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
@@ -562,48 +431,14 @@ colnames(uniform_sim_params) <- c("N", "E min", "E max", "cutoff", "a", "b", "si
   return(uniform_sim_params)
 }
 
-# (N, Emin, Emax, cutoff, a, b, sigma, sims)
-# function inputs: N, Emin, Emax, cutoff, a, b, sigma, sims
-# A. a = -4.5, b = 0.0019 
-scenarioA_uni_100 <- uniform_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 100, 1000)
-scenarioA_uni_300 <- uniform_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 300, 1000)
-scenarioA_uni_500 <- uniform_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 500, 1000)
-# B. a = -8.0, b = 0.0035
-scenarioB_uni_100 <- uniform_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 100, 1000)
-scenarioB_uni_300 <- uniform_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 300, 1000)
-scenarioB_uni_500 <- uniform_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 500, 1000)
-# C. a = -16.0, b = 0.0072
-scenarioC_uni_100 <- uniform_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 100, 1000)
-scenarioC_uni_300 <- uniform_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 300, 1000)
-scenarioC_uni_500 <- uniform_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 500, 1000)
-
-case_uni_1000 <- rbind(scenarioA_uni_100, scenarioA_uni_300, scenarioA_uni_500, scenarioB_uni_100, scenarioB_uni_300, scenarioB_uni_500, scenarioC_uni_100, scenarioC_uni_300, scenarioC_uni_500)
-
-# Case 8: uniform with 1000 samples? 
-# (N, Emin, Emax, cutoff, a, b, sigma, sims)
-# function inputs: N, Emin, Emax, cutoff, a, b, sigma, sims
-# A. a = -4.5, b = 0.0019 
-scenarioA8_100 <- uniform_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 100, 1000)
-scenarioA8_300 <- uniform_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 300, 1000)
-scenarioA8_500 <- uniform_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 500, 1000)
-# B. a = -8.0, b = 0.0035
-scenarioB8_100 <- uniform_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 100, 1000)
-scenarioB8_300 <- uniform_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 300, 1000)
-scenarioB8_500 <- uniform_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 500, 1000)
-# C. a = -16.0, b = 0.0072
-scenarioC8_100 <- uniform_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 100, 1000)
-scenarioC8_300 <- uniform_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 300, 1000)
-scenarioC8_500 <- uniform_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 500, 1000)
-
-case8_1000 <- rbind(scenarioA8_100, scenarioA8_300, scenarioA8_500, scenarioB8_100, scenarioB8_300, scenarioB8_500, scenarioC8_100, scenarioC8_300, scenarioC8_500)
-
 ```
 
+TODO change these df to tibbles
 ```{r scatterplots2}
 # A. a = -4.5, b = 0.0019 
 # B. a = -8.0, b = 0.0035
 # 3. a = -16.0, b = 0.0072
-pop_5 <- data.frame(
+pop_5 <- tibble(
   "E" = rnorm(1000, mean = 2050, sd = 150),
   "Eerror" = rnorm(1000, mean = 0, sd = 100), 
   "Eprime" = E + Eerror, 
@@ -699,60 +534,4 @@ Scatter7C
 Scatter8A
 Scatter8B
 Scatter8C
-```
-
-Other cases to try: other distributions of exposure. 
-
-Left in replicating original study:  
-* calculate the measured, predicted, and corrected RR's (Table 3)  
-  + apply "procedures that predict or correct for effects" of misclassification   
-  + this is to see whether there is a difference in misclassified RRs and 'corrected' RRs where the correction assumes nondifferential misclassification   
-
-
-
-
-
-Code for one simulation
-```{r single, include=FALSE, eval = FALSE}
-# set parameters
-a<- -4.5
-b <- 0.0019
-sigma <- 150
-N <- 1000
-minE <- 1600
-maxE <- 2499
-cutoff <- 2200
-sims <- 200
-E <- seq(from = minE, to = maxE, length.out = N) 
-
-# initialize variables that we want to keep
-  Se_all <- c()
-  Se_D1 <- c()
-  Se_D0 <- c()
-  Sp_all <- c()
-  Sp_D1 <- c()
-  Sp_D0 <- c()
-  RR_true <- c()
-
-for (i in 1:sims){
-  Eerror <- rnorm(N, mean = 0, sd = sigma)
-  Eprime <- E + Eerror
-  E_high <- ifelse(E > cutoff, 1, 0)
-  Eprime_high <- ifelse(Eprime > cutoff,1, 0)
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-# storing Se, Sp, RR values for each simulation
-  Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
-  Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
-  Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
-  
-  Sp_all[i] <- sum(Eprime_high==0 & E_high==0)/sum(E_high==0)
-  Sp_D1[i] <- sum(Eprime_high[D==1]==0 & E_high[D==1]==0)/sum(E_high[D==1]==0)
-  Sp_D0[i] <- sum(Eprime_high[D==0]==0 & E_high[D==0]==0)/sum(E_high[D==0]==0)
-  
-  RR_true[i] <- (sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0))
-}
-    params <- data.frame(N, cutoff, a, b, sims, sigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true))
-
-    colnames(params) <- c("N", "cutoff", "a", "b", "sim", "SD", "Se all", "Se D=1", "Se D=0", "Sp all", "Sp D=1", "Sp D=0", "RR true")
-  
 ```
