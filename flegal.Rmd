@@ -21,7 +21,6 @@ standard deviation of measurement error varied at 100, 300, 500
 They first look at misclassification close to cutpoints of 2,000 and 2,200. Figure 1 plots the measured exposure values (Y axis) against the true exposure values (X axis) at two cutpoints.
 
 ```{r recreate}
-# options(scipen = 0, digits = 4) # decimal place options
 pop0 <- tibble(E = as.integer(seq(from = 1600, to = 2499, length.out = 100)), 
                Eerror = rnorm(100, mean = 0, sd = 150), 
                Eprime = E + Eerror, 
@@ -44,8 +43,7 @@ Want to create scatter plots for each distribution... need to create for each SD
 ```{r scatterplots1}
 # A. a = -4.5, b = 0.0019 
 pop1 <- tibble(
-  E = as.integer(seq(from = 1600, to = 2499, length.out = 100)),
-  Euni = as.integer(runif(100, 1600, 2499)), 
+  E = as.integer(runif(100, 1600, 2499)), 
   Eerror = rnorm(100, mean = 0, sd = 100), 
   Eprime = E + Eerror, 
   E_high = ifelse(E > 2200, 1, 0), 
@@ -84,35 +82,33 @@ Figure 3 shows:
 
 ```{r probD}
 # expected probability of disease 
-prob_D <- glm(D ~ E, data = pop, family = binomial)
-expected_pD <- predict(prob_D, pop, type = "response")
+prob_D <- glm(D ~ E, data = pop0, family = binomial)
+expected_pD <- predict(prob_D, pop0, type = "response")
 
 # probability of misclassification
-E_diff <- abs(E-2200)
-pop$a <- 1 - pnorm(E_diff, 0, 150)
+pop0$E_diff <- abs(pop0$E-2200)
+pop0$a <- 1 - pnorm(pop0$E_diff, 0, 150)
 # ggplot(pop, aes(x = E, y = a))+ geom_line() + geom_vline(xintercept = 2200) + theme_bw()
 
 # Figure 2
-ggplot(pop, aes(x = E)) + geom_line(aes(y = expected_pD)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 2. Prob of misclassification (dashed) & prob of disease (solid)", x = "True Value", y = "Probability")
+ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 2. Prob of misclassification (dashed) & prob of disease (solid)", x = "True Value", y = "Probability")
 
 # expected probability of disease p as a quadratic function of E
-pop$expected_pD_quad <- 6.592 - 0.00673*E + 0.00000172*(E**2)
+pop0$expected_pD_quad <- 6.592 - 0.00673*pop0$E + 0.00000172*(pop0$E**2)
 
 # Figure 3:
-ggplot(pop, aes(x = E)) + geom_line(aes(y = expected_pD_quad)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 3. Prob of misclassification (dashed) & prob of disease, quadratic term (solid)", x = "True Value", y = "Probability")
+ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD_quad)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 3. Prob of misclassification (dashed) & prob of disease, quadratic term (solid)", x = "True Value", y = "Probability")
 
 # probability of misclassification, varied SD to match simulation conditions
-pop$a100 <- 1 - pnorm(E_diff, 0, 100)
-pop$a300 <- 1 - pnorm(E_diff, 0, 300)
-pop$a500 <- 1 - pnorm(E_diff, 0, 500)
-ggplot(pop, aes(x = E)) + geom_line(aes(y = expected_pD), color = "darkgrey") + geom_line(aes(y = a), linetype = 2) + geom_line(aes(y = a100), color = "green") + geom_line(aes(y = a300), color = "green3") + geom_line(aes(y = a500), color = "darkgreen") + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Prob of misclassification & prob of disease (solid)", x = "True Value", y = "Probability")
+pop0$a100 <- 1 - pnorm(pop0$E_diff, 0, 100)
+pop0$a300 <- 1 - pnorm(pop0$E_diff, 0, 300)
+pop0$a500 <- 1 - pnorm(pop0$E_diff, 0, 500)
+mis_plot <- ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD), color = "darkgrey") + geom_line(aes(y = a), linetype = 2) + geom_line(aes(y = a100), color = "green") + geom_line(aes(y = a300), color = "green3") + geom_line(aes(y = a500), color = "darkgreen") + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Prob of misclassification & prob of disease (solid)", x = "True Value", y = "Probability")
 
 ```
 green lines are the expected probabilities of misclassification. 
 
-Flegal et al. plot the probability of misclassification as a function of the distribution of the measurement error; not sure that it is actually the probability of misclassification? I think it may be more appropriate to simulate it and maybe re-create the population 100 times then get the proportion who were misclassified for each value of the exposure. 
-
-So do I run the function 100 times? or create a dataframe that has it done 100 times?
+Flegal et al. plot the probability of misclassification as a function of the distribution of the measurement error; not sure that it is actually the probability of misclassification? I think it may be more appropriate to simulate it and maybe re-create the population 100 times then get the proportion who were classified for each value of the exposure. Idk.
 
 
 ### Recreating simulations
@@ -120,17 +116,19 @@ Created a function to replicate the scenario from Flegal et al that outputs the 
 
 Function arguments are:  
 
-* N sample size, uniformly distributed across range of exposure values  
-* min, max range of exposure values
-* cutpt the cutpoint for categorizing 
-* a, b parameters for the linear logistic probability of disease  
-* sigma standard deviation of measurement error  
+* N: sample size, uniformly distributed across range of exposure values  
+* Emin, Emax: range of exposure values
+* cutpt: the cutpoint for categorizing 
+* a, b: parameters for the linear logistic probability of disease
+* Nsigma: number of standard deviations of measurement error to go through 
+* MEsigma: vector of the standard deviationsof measurement error  
+* Nsims: number of simulations 
 
 ```{r flegalfunction}
-Nsigma <- 3 # number of measurement error SD values
+Nsigma <- 3 # number of measurement error SD values - maybe this can come from MEsigma length?
 MEsigma <- c(100, 300, 500) # values of measurement errors 
 
-flegal_sim <- function(N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, sims){
+flegal_sim <- function(N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims){
   # initialize variables that we want to keep
   Se_all <- c()
   Se_D1 <- c()
@@ -141,15 +139,15 @@ flegal_sim <- function(N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, sims){
   RR_true <- c()
   RR_obs <- c()
   
-    # fixed exposure values and disease status. Not sure whether to use runif vs. seq 
-  E <- as.integer(seq(from = 1600, to = 2499, length.out = N))
+    # fixed exposure values and disease status. Using seq to ensure same numbers every time
+  E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
   D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
   
   for (j in 1:Nsigma){
-    MEsigma <- MEsigma[j]
+    MEsig <- MEsigma[j]
   
     for (i in 1:Nsims){
-      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+      Eerror <- rnorm(N, mean = 0, sd = MEsig)
       Eprime <- E + Eerror
       E_high <- ifelse(E > cutpt, 1, 0)
       Eprime_high <- ifelse(Eprime > cutpt, 1, 0)
@@ -166,11 +164,12 @@ flegal_sim <- function(N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, sims){
       RR_true[i] <- ((sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0)))
       RR_obs[i] <- ((sum(D==1 & Eprime_high==1)/sum(Eprime_high==1))/(sum(D==1 & Eprime_high==0)/sum(Eprime_high==0)))
       }
-      params <- data.frame(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true), mean(RR_obs))
-    }
-    colnames(params) <- c("N", "cutoff", "a", "b", "sim", "SD", "Se all", "Se D=1", "Se D=0", "Sp all", "Sp D=1", "Sp D=0", "RR true", "RR obs")
+  params <- data.frame(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true), mean(RR_obs))  
+  colnames(params) <- c("N", "Emin", "Emax", "cutoff", "a", "b", "sims", "SD", "Se_all", "Se_D1", "Se_D0", "Sp_all", "Sp_D1", "Sp_D0", "RR_true", "RR_obs")
   return(params)
+  }
 }
+
 ```
 Note about the RR calculations; they don't include whole population, but maybe that is similar to what one would measure irl? 
 
@@ -183,99 +182,115 @@ So for the main simulations, they originally varied:
 and did 200 simulations of each on the nine combinations.  
 
 ```{r case1}
-set.seed(30308)
-# Function arguments are: sample size, minimum exposure, maximum exposure, cutpoint, a, b, standard deviation of measurement error, and number of simulations
-# N, min, max, cutpt, a, b, sigma, sims
-# A, B, C reflect the different regression models/ RR 
-# case 1 is repeating the simulations from the paper 
-# A. a = -4.5, b = 0.0019 
-case1A_100 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 100, 200)
-case1A_300 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 300, 200)
-case1A_500 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 500, 200)
-# B. a = -8.0, b = 0.0035
-case1B_100 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 100, 200)
-case1B_300 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 300, 200)
-case1B_500 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 500, 200)
-# C. a = -16.0, b = 0.0072
-case1C_100 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 100, 200)
-case1C_300 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 300, 200)
-case1C_500 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 500, 200)
+set.seed(303)
+# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
+Nsigma <- 3
+MEsigma <- c(100, 300, 500)
+# A, B, C reflect the different regression models/ RR
+case1A <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, Nsigma, MEsigma, 200)
+case1B <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, Nsigma, MEsigma, 200)
+case1C <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, Nsigma, MEsigma, 200)
 
-case1 <- rbind(case1A_100, case1A_300, case1A_500, case1B_100, case1B_300, case1B_500, case1C_100, case1C_300, case1C_500)
+case1 <- rbind(case1A, case1B, case1C)
 ```
 
 
 ##### CASE 2  
 Repeating the same but with 1000 simulations. Everything else is same. 
-
 ```{r, case2}
-# Function arguments are: sample size, a, b, standard deviation of measurement error, and number of simulations
-# first digit is combination of a,b & second digit is SD
-# 1. a = -4.5, b = 0.0019 
-case2A_100 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 100, 1000)
-case2A_300 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 300, 1000)
-case2A_500 <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, 500, 1000)
-# 2. a = -8.0, b = 0.0035
-case2B_100 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 100, 1000)
-case2B_300 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 300, 1000)
-case2B_500 <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, 500, 1000)
-# 3. a = -16.0, b = 0.0072
-case2C_100 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 100, 1000)
-case2C_300 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 300, 1000)
-case2C_500 <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, 500, 1000)
+set.seed(303)
+# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
+# A, B, C reflect the different regression models/ RR
+case2A <- flegal_sim(100, 1600, 2499, 2200, -4.5, 0.0019, Nsigma, MEsigma, 1000)
+case2B <- flegal_sim(100, 1600, 2499, 2200, -8.0, 0.0035, Nsigma, MEsigma, 1000)
+case2C <- flegal_sim(100, 1600, 2499, 2200, -16.0, 0.0072, Nsigma, MEsigma, 1000)
 
-case2 <- rbind(case2A_100, case2A_300, case2A_500, case2B_100, case2B_300, case2B_500, case2C_100, case2C_300, case2C_500)
+case2 <- rbind(case2A, case2B, case2C)
 ```
 When we increase the simulations, the trends still hold. 
 
 
-##### CASE 3  
-Increasing the number of samples from **100** to **1000*. 
-From here on out, using 1,000 samples and 1,000 simulations.
+I think for N>900 (difference between min and max) it makes more sense to use uniform distribution to create the exposure. This means there may be variation between each run...
+```{r unifunction}
+Nsigma <- 3
+MEsigma <- c(100, 300, 500) # values of measurement errors 
+# Nsigma <- as.numeric(length(MEsigma)) # is this better? 
 
+uni_sim <- function(N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims){
+  # initialize variables that we want to keep
+  Se_all <- c()
+  Se_D1 <- c()
+  Se_D0 <- c()
+  Sp_all <- c()
+  Sp_D1 <- c()
+  Sp_D0 <- c()
+  RR_true <- c()
+  RR_obs <- c()
+  
+  E <- as.integer(runif(N, min = Emin, max = Emax)) #keeping this as int 
+  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
+  
+  for (j in 1:Nsigma){
+    MEsig <- MEsigma[j]
+  
+    for (i in 1:Nsims){
+      Eerror <- rnorm(N, mean = 0, sd = MEsig)
+      Eprime <- E + Eerror
+      E_high <- ifelse(E > cutpt, 1, 0)
+      Eprime_high <- ifelse(Eprime > cutpt, 1, 0)
+    
+      Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
+      Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
+      Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
+      
+      Sp_all[i] <- sum(Eprime_high==0 & E_high==0)/sum(E_high==0)
+      Sp_D1[i] <- sum(Eprime_high[D==1]==0 & E_high[D==1]==0)/sum(E_high[D==1]==0)
+      Sp_D0[i] <- sum(Eprime_high[D==0]==0 & E_high[D==0]==0)/sum(E_high[D==0]==0)
+      
+      # based on equations from Flegal appendix. 
+      RR_true[i] <- ((sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0)))
+      RR_obs[i] <- ((sum(D==1 & Eprime_high==1)/sum(Eprime_high==1))/(sum(D==1 & Eprime_high==0)/sum(Eprime_high==0)))
+      }
+  params <- data.frame(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true), mean(RR_obs))  
+  colnames(params) <- c("N", "Emin", "Emax", "cutoff", "a", "b", "sims", "SD", "Se_all", "Se_D1", "Se_D0", "Sp_all", "Sp_D1", "Sp_D0", "RR_true", "RR_obs")
+  return(params)
+  }
+}
 
+```
+##### Uniform distribution with increased sample size
+*Case 3*  
+Increasing the number of samples from **100** to **1000*.  
+From here on out, using 1,000 samples and 1,000 simulations.  
+Comparing results from both functions
 ```{r case3}
-# Function arguments are: sample size, minimum exposure, maximum exposure, cutpoint, a, b, standard deviation of measurement error, and number of simulations
-# N, min, max, cutpt, a, b, sigma, sims
+set.seed(303)
+# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
+# A, B, C reflect the different regression models/ RR
+case3A <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, Nsigma, MEsigma, 1000)
+case3B <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, Nsigma, MEsigma, 1000)
+case3C <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, Nsigma, MEsigma, 1000)
 
-# 1. a = -4.5, b = 0.0019 
-case3A_100 <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 100, 1000)
-case3A_300 <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 300, 1000)
-case3A_500 <- flegal_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, 500, 1000)
-# 2. a = -8.0, b = 0.0035
-case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 100, 1000)
-case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 300, 1000)
-case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, 500, 1000)
-# 3. a = -16.0, b = 0.0072
-case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 100, 1000)
-case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 300, 1000)
-case3B_100 <- flegal_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, 500, 1000)
+case3 <- rbind(case3A, case3B, case3C)
 
-case3 <- rbind(case3A_100, case3A_300, case3A_500, case3B_100, case3B_300, case3B_500, case3C_100, case3C_300, case3C_500)
+ucase3A <- uni_sim(1000, 1600, 2499, 2200, -4.5, 0.0019, Nsigma, MEsigma, 1000)
+ucase3B <- uni_sim(1000, 1600, 2499, 2200, -8.0, 0.0035, Nsigma, MEsigma, 1000)
+ucase3C <- uni_sim(1000, 1600, 2499, 2200, -16.0, 0.0072, Nsigma, MEsigma, 1000)
+
+ucase3 <- rbind(ucase3A, ucase3B, ucase3C)
+
+comp3 <- rbind(case3, ucase3)
 ```
 
+*Case 4*  
+Increasing the number of samples to 100,000. (1,000,000 took too long) Using unif distribution because of large N.     
+```{r case4, eval = FALSE}
+set.seed(303)
+case4A <- uni_sim(100000, 1600, 2499, 2200, -4.5, 0.0019, Nsigma, MEsigma, 1000)
+case4B <- uni_sim(100000, 1600, 2499, 2200, -8.0, 0.0035, Nsigma, MEsigma, 1000)
+case4C <- uni_sim(100000, 1600, 2499, 2200, -16.0, 0.0072, Nsigma, MEsigma, 1000)
 
-##### CASE 4  
-Now trying to see how the cutpoint is involved... 
-Case 4 changes it from 2,200 to 2,400 so more of the sample are in the 'low' category.  
-
-```{r case4}
-# Function arguments are: sample size, minimum exposure, maximum exposure, cutpoint, a, b, standard deviation of measurement error, and number of simulations
-# N, min, max, cutpt, a, b, sigma, sims
-# A. a = -4.5, b = 0.0019 
-case4A_100 <- flegal_sim(1000, 1600, 2499, 2400, -4.5, 0.0019, 100, 1000)
-case4A_300 <- flegal_sim(1000, 1600, 2499, 2400, -4.5, 0.0019, 300, 1000)
-case4A_500 <- flegal_sim(1000, 1600, 2499, 2400, -4.5, 0.0019, 500, 1000)
-# B. a = -8.0, b = 0.0035
-scenarioB4_100 <- flegal_sim(1000, 1600, 2499, 2400, -8.0, 0.0035, 100, 1000)
-scenarioB4_300 <- flegal_sim(1000, 1600, 2499, 2400, -8.0, 0.0035, 300, 1000)
-scenarioB4_500 <- flegal_sim(1000, 1600, 2499, 2400, -8.0, 0.0035, 500, 1000)
-# C. a = -16.0, b = 0.0072
-case4C_100 <- flegal_sim(1000, 1600, 2499, 2400, -16.0, 0.0072, 100, 1000)
-case4C_300 <- flegal_sim(1000, 1600, 2499, 2400, -16.0, 0.0072, 300, 1000)
-case4C_500 <- flegal_sim(1000, 1600, 2499, 2400, -16.0, 0.0072, 500, 1000)
-
-case4 <- rbind(case4A_100, case4A_300, case4A_500, case4B_100, case4B_300, case4B_500, case4C_100, case4C_300, case4C_500)
+case4 <- rbind(case4A, case4B, case4C)
 ```
 
 
@@ -284,8 +299,7 @@ What happens if we make exposure normally distributed?
 ##### CASE 5  
 New function for normal distribution
 ```{r createnorm}
-normal_sim <- function(N, Emean, Esigma, cutoff, a, b, MEsigma, sims){
-  
+normal_sim <- function(N, Emean, Esigma, cutoff, a, b, Nsigma, MEsigma, Nsims){
 # initialize variables that we want to keep
   Se_all <- c()
   Se_D1 <- c()
@@ -294,181 +308,139 @@ normal_sim <- function(N, Emean, Esigma, cutoff, a, b, MEsigma, sims){
   Sp_D1 <- c()
   Sp_D0 <- c()
   RR_true <- c()
+  RR_obs <- c()
 
   # have to 'fix' the true exposure value in order to fix the disease status. 
   E <- rnorm(N, mean = Emean, sd = Esigma)
   D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
+for (j in 1:Nsigma){
+  for (i in 1:N){
+    Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+    Eprime <- E + Eerror
+    E_high <- ifelse(E > cutoff, 1, 0)
+    Eprime_high <- ifelse(Eprime > cutoff,1, 0)
+
+    Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
+    Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
+    Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
   
-for (i in 1:sims){
-  Eerror <- rnorm(N, mean = 0, sd = sigma)
-  Eprime <- E + Eerror
-  E_high <- ifelse(E > cutoff, 1, 0)
-  Eprime_high <- ifelse(Eprime > cutoff,1, 0)
-
-  Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
-  Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
-  Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
+    Sp_all[i] <- sum(Eprime_high==0 & E_high==0)/sum(E_high==0)
+    Sp_D1[i] <- sum(Eprime_high[D==1]==0 & E_high[D==1]==0)/sum(E_high[D==1]==0)
+    Sp_D0[i] <- sum(Eprime_high[D==0]==0 & E_high[D==0]==0)/sum(E_high[D==0]==0)
   
-  Sp_all[i] <- sum(Eprime_high==0 & E_high==0)/sum(E_high==0)
-  Sp_D1[i] <- sum(Eprime_high[D==1]==0 & E_high[D==1]==0)/sum(E_high[D==1]==0)
-  Sp_D0[i] <- sum(Eprime_high[D==0]==0 & E_high[D==0]==0)/sum(E_high[D==0]==0)
-  
-  RR_true[i] <- (sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0))
-}
-
-normal_sim_params <- tibble(N, Emean, Esigma, cutoff, a, b, sims, sigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true))
-
-colnames(normal_sim_params) <- c("N", "E mean", "E SD", "cutoff", "a", "b", "sim", "SD", "Se all", "Se D=1", "Se D=0", "Sp all", "Sp D=1", "Sp D=0", "RR true")
-
-  return(normal_sim_params)
+    RR_true[i] <- (sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0))
+      RR_obs[i] <- ((sum(D==1 & Eprime_high==1)/sum(Eprime_high==1))/(sum(D==1 & Eprime_high==0)/sum(Eprime_high==0)))
+        }
+    params <- data.frame(N, Emean, Esigma, cutoff, a, b, Nsims, MEsigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true), mean(RR_obs))
+    colnames(params) <- c("N", "Emean", "ESD", "cutoff", "a", "b", "sims", "SD", "Se_all", "Se_D1", "Se_D0", "Sp_all", "Sp_D1", "Sp_D0", "RR_true", "RR_obs")
+  }
+  return(params)
 }
 ```
 
 
-Previous range is 1,600 to 2,499. What should the mean and standard deviations be? 2050 is the midpoint.  
+Previous range is 1,600 to 2,499. 
 If mean = midpoint of 2050, SD of 150 would make most of the values fall within 1,600 - 2,5000 range. 
 Is there reason to believe that the exposure distribution would be affected by probability of disease?   
 
 
 Case 5: Changing the exposure distribution to ~N(2050, 150)    
 ```{r case5}
-# function inputs: N, Emean, Esigma, cutoff, a, b, sigma, sims
+set.seed(303)
+Nsigma <- 3
+MEsigma <- c(100, 300, 500)
 # A. a = -4.5, b = 0.0019 
-case5A_100 <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, 100, 1000)
-case5A_300 <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, 300, 1000)
-case5A_500 <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, 500, 1000)
 # B. a = -8.0, b = 0.0035
-case5B_100 <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, 100, 1000)
-case5B_300 <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, 300, 1000)
-case5B_500 <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, 500, 1000)
 # C. a = -16.0, b = 0.0072
-case5C_100 <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, 100, 1000)
-case5C_300 <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, 300, 1000)
-case5C_500 <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, 500, 1000)
 
-case5 <- rbind(case5A_100, case5A_300, case5A_500, case5B_100, case5B_300, case5B_500, case5C_100, case5C_300, case5C_500)
+case5A <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, Nsigma, MEsigma, 1000)
+case5B <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, Nsigma, MEsigma, 1000)
+case5C <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, Nsigma, MEsigma, 1000)
+
+case5 <- rbind(case5A, case5B, case5C)
 ```
 Seems like there is still have some level of differential misclassification, but smaller difference between diseased and non-diseased for both Se and Sp.  
 
 
 ##### Other ~N
-Case 6: Normal distribution around the cutpoint  
-Case 7: exposure ~N but 'high' is rare
+Case 6: Normal distribution around the cutpoint (mean 2,200)  
+Case 7: exposure ~N but 'high' is rare (mean 1,900)
 
 ```{r case6sim}
 # A. a = -4.5, b = 0.0019 
-case6A_100 <- normal_sim(1000, 2200, 150, 2200, -4.5, 0.0019, 100, 1000)
-case6A_300 <- normal_sim(1000, 2200, 150, 2200, -4.5, 0.0019, 300, 1000)
-case6A_500 <- normal_sim(1000, 2200, 150, 2200, -4.5, 0.0019, 500, 1000)
 # B. a = -8.0, b = 0.0035
-case6B_100 <- normal_sim(1000, 2200, 150, 2200, -8.0, 0.0035, 100, 1000)
-case6B_300 <- normal_sim(1000, 2200, 150, 2200, -8.0, 0.0035, 300, 1000)
-case6B_500 <- normal_sim(1000, 2200, 150, 2200, -8.0, 0.0035, 500, 1000)
 # C. a = -16.0, b = 0.0072
-case6C_100 <- normal_sim(1000, 2200, 150, 2200, -16.0, 0.0072, 100, 1000)
-case6C_300 <- normal_sim(1000, 2200, 150, 2200, -16.0, 0.0072, 300, 1000)
-case6C_500 <- normal_sim(1000, 2200, 150, 2200, -16.0, 0.0072, 500, 1000)
+set.seed(303)
+Nsigma <- 3
+MEsigma <- c(100, 300, 500)
 
-case6 <- rbind(case6A_100, case6A_300, case6A_500, case6B_100, case6B_300, case6B_500, case6C_100, case6C_300, case6C_500)
+case6A <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, Nsigma, MEsigma, 1000)
+case6B <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, Nsigma, MEsigma, 1000)
+case6C <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, Nsigma, MEsigma, 1000)
 
+case6 <- rbind(case6A, case6B, case6C)
 
-# rare exposure
-# A. a = -4.5, b = 0.0019 
-case7A_100 <- normal_sim(1000, 1900, 150, 2200, -4.5, 0.0019, 100, 1000)
-case7A_300 <- normal_sim(1000, 1900, 150, 2200, -4.5, 0.0019, 300, 1000)
-case7A_500 <- normal_sim(1000, 1900, 150, 2200, -4.5, 0.0019, 500, 1000)
-# B. a = -8.0, b = 0.0035
-case7B_100 <- normal_sim(1000, 1900, 150, 2200, -8.0, 0.0035, 100, 1000)
-case7B_300 <- normal_sim(1000, 1900, 150, 2200, -8.0, 0.0035, 300, 1000)
-case7B_500 <- normal_sim(1000, 1900, 150, 2200, -8.0, 0.0035, 500, 1000)
-# C. a = -16.0, b = 0.0072
-case7C_100 <- normal_sim(1000, 1900, 150, 2200, -16.0, 0.0072, 100, 1000)
-case7C_300 <- normal_sim(1000, 1900, 150, 2200, -16.0, 0.0072, 300, 1000)
-case7C_500 <- normal_sim(1000, 1900, 150, 2200, -16.0, 0.0072, 500, 1000)
+case7A <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, Nsigma, MEsigma, 1000)
+case7B <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, Nsigma, MEsigma, 1000)
+case7C <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, Nsigma, MEsigma, 1000)
 
-case7 <- rbind(case7A_100, case7A_300, case7A_500, case7B_100, case7B_300, case7B_500, case7C_100, case7C_300, case7C_500)
+case7 <- rbind(case7A, case7B, case7C)
+
+case8A <- normal_sim(1000, 2050, 150, 2200, -4.5, 0.0019, Nsigma, MEsigma, 1000)
+case8B <- normal_sim(1000, 2050, 150, 2200, -8.0, 0.0035, Nsigma, MEsigma, 1000)
+case8C <- normal_sim(1000, 2050, 150, 2200, -16.0, 0.0072, Nsigma, MEsigma, 1000)
+
+case8 <- rbind(case8A, case8B, case8C)
+```
+
+at this point, I typically export as csv but with uniform cases in one grouping and normal separately, since the variables retained are slightly different. I then create an xlsx with one tab for each then one where they are combined....
+```{r savestuff}
+# case4 is 100,000
+unifs <- rbind(case1, case2, case3, case4)
+norms <- rbind(case5, case6, case7, case8)
+write.csv(unifs, "uniform.csv")
+write.csv(norms, "normal.csv")
 ```
 
 
-Function for uniform distribution - but this is similar to original? Evenly spaced vs. uniform?
-```{r createuni}
-uniform_sim <- function(N, Emin, Emax, cutoff, a, b, sigma, sims){
-  
-# initialize variables that we want to keep
-  Se_all <- c()
-  Se_D1 <- c()
-  Se_D0 <- c()
-  Sp_all <- c()
-  Sp_D1 <- c()
-  Sp_D0 <- c()
-  RR_true <- c()
-  
-  # runif creates diff sample each time? 
-  E <- runif(N, min = Emin, max = Emax)
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
-  
-for (i in 1:sims){
-  Eerror <- rnorm(N, mean = 0, sd = sigma)
-  Eprime <- E + Eerror
-  E_high <- ifelse(E > cutoff, 1, 0)
-  Eprime_high <- ifelse(Eprime > cutoff,1, 0)
- 
-# storing Se, Sp, RR values for each simulation
-  Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
-  Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
-  Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
-  
-  Sp_all[i] <- sum(Eprime_high==0 & E_high==0)/sum(E_high==0)
-  Sp_D1[i] <- sum(Eprime_high[D==1]==0 & E_high[D==1]==0)/sum(E_high[D==1]==0)
-  Sp_D0[i] <- sum(Eprime_high[D==0]==0 & E_high[D==0]==0)/sum(E_high[D==0]==0)
-  
-  RR_true[i] <- (sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0))
-}
-
-uniform_sim_params <- data.frame(N, Emin, Emax, cutoff, a, b, sims, sigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true))
-
-colnames(uniform_sim_params) <- c("N", "E min", "E max", "cutoff", "a", "b", "sim", "SD", "Se all", "Se D=1", "Se D=0", "Sp all", "Sp D=1", "Sp D=0", "RR true")
-  return(uniform_sim_params)
-}
-
-```
-
-TODO change these df to tibbles
+For now I am creating one plot at a time. It is probably possible to do this more efficiently (maybe long format vs. wide) but that is a problem for a later time...
 ```{r scatterplots2}
 # A. a = -4.5, b = 0.0019 
 # B. a = -8.0, b = 0.0035
 # 3. a = -16.0, b = 0.0072
-pop_5 <- tibble(
-  "E" = rnorm(1000, mean = 2050, sd = 150),
-  "Eerror" = rnorm(1000, mean = 0, sd = 100), 
-  "Eprime" = E + Eerror, 
-  "E_high" = ifelse(E > 2200, 1, 0), 
-  "Eprime_high" = ifelse(Eprime > 2200, 1, 0), 
-  "E_mis" = ifelse(E_high != Eprime_high, 1, 0),
-  "DA" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
-  "DB" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
-  "DC" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
+pop5 <- tibble(
+  E = rnorm(1000, mean = 2050, sd = 150), 
+  Eerror100 = rnorm(1000, mean = 0, sd = 100), Eprime100 = E + Eerror100, 
+  Eerror300 = rnorm(1000, mean = 0, sd = 300), Eprime300 = E + Eerror300, 
+  Eerror500 = rnorm(1000, mean = 0, sd = 500), Eprime500 = E + Eerror500, 
+  E_high = ifelse(E > 2200, 1, 0), Eprime100_high = ifelse(Eprime100 > 2200, 1, 0), 
+  Eprime300_high = ifelse(Eprime300 > 2200, 1, 0), Eprime500_high = ifelse(Eprime500 > 2200, 1, 0), 
+  DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
+  DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
+  DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
   )
 
-Scatter5A <- ggplot(pop_5, aes(x = E, y = Eprime, color = DA)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~Normal(2050, 150), RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+Scatter5A_100 <- ggplot(pop5, aes(x = E, y = Eprime100, color = DA)) + geom_point(alpha = 0.5) + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~N(2050,150), ME ~N(0,100) RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_classic()
 
-Scatter5B <- ggplot(pop_5, aes(x = E, y = Eprime, color = DB)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "E ~Normal(2050, 150), RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+Scatter5B_100 <- ggplot(pop5, aes(x = E, y = Eprime100, color = DB)) + geom_point(alpha = 0.5) + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~N(2050,150), ME ~N(0,100) RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_classic()
 
-Scatter5C <- ggplot(pop_5, aes(x = E, y = Eprime, color = DC)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~Normal(2050, 150), RR = 5.00", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+Scatter5C_100 <- ggplot(pop5, aes(x = E, y = Eprime100, color = DC)) + geom_point(alpha = 0.5) + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~N(2050,150), ME ~N(0,100) RR = 5.00", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_classic()
+```
 
 
-
+Which RR and SD combos to plot? 
+```{r morescatter}
 # case 6: E <- rnorm(n, mean = 2200, sd = 150)
-pop_6 <- data.frame(
-  "E" = rnorm(1000, mean = 2200, sd = 150),
-  "Eerror" = rnorm(1000, mean = 0, sd = 100), 
-  "Eprime" = E + Eerror, 
-  "E_high" = ifelse(E > 2200, 1, 0), 
-  "Eprime_high" = ifelse(Eprime > 2200, 1, 0), 
-  "E_mis" = ifelse(E_high != Eprime_high, 1, 0),
-  "DA" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
-  "DB" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
-  "DC" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
+pop6 <- data.frame(
+  E = rnorm(1000, mean = 2200, sd = 150), 
+  Eerror = rnorm(1000, mean = 0, sd = 100), 
+  Eprime = E + Eerror, 
+  E_high = ifelse(E > 2200, 1, 0), 
+  Eprime_high = ifelse(Eprime > 2200, 1, 0), 
+  E_mis = ifelse(E_high != Eprime_high, 1, 0),
+  DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
+  DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
+  DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
   )
 
 Scatter6A <- ggplot(pop_6, aes(x = E, y = Eprime, color = DA)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "E ~Normal(2200, 150), RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
@@ -479,16 +451,16 @@ Scatter6C <- ggplot(pop_6, aes(x = E, y = Eprime, color = DC)) + geom_point() + 
 
 
 # case7: E ~N(mean = 1900, sd = 150) rare exposure
-pop_7 <- data.frame(
-  "E" = rnorm(1000, mean = 1900, sd = 150),
-  "Eerror" = rnorm(1000, mean = 0, sd = 100), 
-  "Eprime" = E + Eerror, 
-  "E_high" = ifelse(E > 2200, 1, 0), 
-  "Eprime_high" = ifelse(Eprime > 2200, 1, 0), 
-  "E_mis" = ifelse(E_high != Eprime_high, 1, 0),
-  "DA" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
-  "DB" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
-  "DC" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
+pop7 <- data.frame(
+  E = rnorm(1000, mean = 1900, sd = 150), 
+  Eerror = rnorm(1000, mean = 0, sd = 100), 
+  Eprime = E + Eerror, 
+  E_high = ifelse(E > 2200, 1, 0), 
+  Eprime_high = ifelse(Eprime > 2200, 1, 0), 
+  E_mis = ifelse(E_high != Eprime_high, 1, 0),
+  DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
+  DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
+  DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
   )
 
 Scatter7A <- ggplot(pop_7, aes(x = E, y = Eprime, color = DA)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~Normal(1900, 150), RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
@@ -499,16 +471,16 @@ Scatter7C <- ggplot(pop_7, aes(x = E, y = Eprime, color = DC)) + geom_point() + 
 
 
 # uniform but n = 1000
-pop_8 <- data.frame(
-  "E" = runif(1000, min = 1600, max = 2499),
-  "Eerror" = rnorm(1000, mean = 0, sd = 100), 
-  "Eprime" = E + Eerror, 
-  "E_high" = ifelse(E > 2200, 1, 0), 
-  "Eprime_high" = ifelse(Eprime > 2200, 1, 0), 
-  "E_mis" = ifelse(E_high != Eprime_high, 1, 0),
-  "DA" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
-  "DB" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
-  "DC" = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
+pop8 <- data.frame(
+  E = runif(1000, min = 1600, max = 2499),
+  Eerror = rnorm(1000, mean = 0, sd = 100), 
+  Eprime = E + Eerror, 
+  E_high = ifelse(E > 2200, 1, 0), 
+  Eprime_high = ifelse(Eprime > 2200, 1, 0), 
+  E_mis = ifelse(E_high != Eprime_high, 1, 0),
+  DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
+  DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
+  DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
   )
 
 Scatter8A <- ggplot(pop_8, aes(x = E, y = Eprime, color = DA)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "Uniform with n = 1,000, RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
@@ -516,22 +488,4 @@ Scatter8A <- ggplot(pop_8, aes(x = E, y = Eprime, color = DA)) + geom_point() + 
 Scatter8B <- ggplot(pop_8, aes(x = E, y = Eprime, color = DB)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "Uniform with n = 1,000, RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
 
 Scatter8C <- ggplot(pop_8, aes(x = E, y = Eprime, color = DC)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "Uniform with n = 1,000, RR = 5.00", x = "True Value", y = "Measured Value", color = "Disease" ) + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
-```
-
-```{r allscatter}
-Scatter1A
-Scatter1B
-Scatter1C
-Scatter5A
-Scatter5B
-Scatter5C
-Scatter6A
-Scatter6B
-Scatter6C
-Scatter7A
-Scatter7B
-Scatter7C
-Scatter8A
-Scatter8B
-Scatter8C
 ```
