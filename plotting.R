@@ -1,0 +1,104 @@
+# Scatterplots of one simulation for each scenario we ran through
+# may convert this to Rmd for the sake of chunks
+# could also make a function to plot these but that can be at a later time
+pop1 <- tibble(
+  E = as.integer(runif(1000, 1600, 2499)), 
+  Eerror = rnorm(1000, mean = 0, sd = 100), 
+  Eprime = E + Eerror, 
+  E_high = ifelse(E > 2200, 1, 0), 
+  Eprime_high = ifelse(Eprime > 2200,1, 0), 
+  E_mis = ifelse(E_high != Eprime_high, 1, 0),
+  DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
+  DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
+  DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
+)
+
+Scatter1A <- ggplot(pop1, aes(x = E, y = Eprime, color = DA)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "~Unif N = 1,000, RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+Scatter1A
+
+Scatter1B <- ggplot(pop1, aes(x = E, y = Eprime, color = DB)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "~Unif n = 1,000, RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+Scatter1C <- ggplot(pop1, aes(x = E, y = Eprime, color = DC)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "~Unif n = 1,000, RR = 5.00", x = "True Value", y = "Measured Value ") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+
+# For now I am creating one plot at a time. It is probably possible to do this more efficiently (maybe long format vs. wide) but that is a problem for a later time...
+
+# A. a = -4.5, b = 0.0019 
+# B. a = -8.0, b = 0.0035
+# 3. a = -16.0, b = 0.0072
+pop5 <- tibble(
+  E = rnorm(1000, mean = 2050, sd = 150), 
+  Eerror100 = rnorm(1000, mean = 0, sd = 100), Eprime100 = E + Eerror100, 
+  Eerror300 = rnorm(1000, mean = 0, sd = 300), Eprime300 = E + Eerror300, 
+  Eerror500 = rnorm(1000, mean = 0, sd = 500), Eprime500 = E + Eerror500, 
+  E_high = ifelse(E > 2200, 1, 0), Eprime100_high = ifelse(Eprime100 > 2200, 1, 0), 
+  Eprime300_high = ifelse(Eprime300 > 2200, 1, 0), Eprime500_high = ifelse(Eprime500 > 2200, 1, 0), 
+  DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
+  DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
+  DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
+)
+
+Scatter5A_100 <- ggplot(pop5, aes(x = E, y = Eprime100, color = DA)) + geom_point(alpha = 0.5) + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~N(2050,150), ME ~N(0,100) RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_classic()
+
+Scatter5B_100 <- ggplot(pop5, aes(x = E, y = Eprime100, color = DB)) + geom_point(alpha = 0.5) + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~N(2050,150), ME ~N(0,100) RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_classic()
+
+Scatter5C_100 <- ggplot(pop5, aes(x = E, y = Eprime100, color = DC)) + geom_point(alpha = 0.5) + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~N(2050,150), ME ~N(0,100) RR = 5.00", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_classic()
+
+# case 6: E <- rnorm(n, mean = 2200, sd = 150)
+pop6 <- data.frame(
+  E = rnorm(1000, mean = 2200, sd = 150), 
+  Eerror = rnorm(1000, mean = 0, sd = 100), 
+  Eprime = E + Eerror, 
+  E_high = ifelse(E > 2200, 1, 0), 
+  Eprime_high = ifelse(Eprime > 2200, 1, 0), 
+  E_mis = ifelse(E_high != Eprime_high, 1, 0),
+  DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
+  DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
+  DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
+)
+
+Scatter6A <- ggplot(pop_6, aes(x = E, y = Eprime, color = DA)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "E ~Normal(2200, 150), RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+Scatter6B <- ggplot(pop_6, aes(x = E, y = Eprime, color = DB)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "E ~Normal(2200, 150), RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+Scatter6C <- ggplot(pop_6, aes(x = E, y = Eprime, color = DC)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "E ~Normal(2200, 150), RR = 5.00", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+
+# case7: E ~N(mean = 1900, sd = 150) rare exposure
+pop7 <- data.frame(
+  E = rnorm(1000, mean = 1900, sd = 150), 
+  Eerror = rnorm(1000, mean = 0, sd = 100), 
+  Eprime = E + Eerror, 
+  E_high = ifelse(E > 2200, 1, 0), 
+  Eprime_high = ifelse(Eprime > 2200, 1, 0), 
+  E_mis = ifelse(E_high != Eprime_high, 1, 0),
+  DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
+  DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
+  DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
+)
+
+Scatter7A <- ggplot(pop_7, aes(x = E, y = Eprime, color = DA)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~Normal(1900, 150), RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+Scatter7B <- ggplot(pop_7, aes(x = E, y = Eprime, color = DB)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~Normal(1900, 150), RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+Scatter7C <- ggplot(pop_7, aes(x = E, y = Eprime, color = DC)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "E ~Normal(1900, 150), RR = 5.00", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+
+# uniform but n = 1000
+pop8 <- data.frame(
+  E = runif(1000, min = 1600, max = 2499),
+  Eerror = rnorm(1000, mean = 0, sd = 100), 
+  Eprime = E + Eerror, 
+  E_high = ifelse(E > 2200, 1, 0), 
+  Eprime_high = ifelse(Eprime > 2200, 1, 0), 
+  E_mis = ifelse(E_high != Eprime_high, 1, 0),
+  DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
+  DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
+  DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
+)
+
+Scatter8A <- ggplot(pop_8, aes(x = E, y = Eprime, color = DA)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "Uniform with n = 1,000, RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+Scatter8B <- ggplot(pop_8, aes(x = E, y = Eprime, color = DB)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "Uniform with n = 1,000, RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+
+Scatter8C <- ggplot(pop_8, aes(x = E, y = Eprime, color = DC)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "Uniform with n = 1,000, RR = 5.00", x = "True Value", y = "Measured Value", color = "Disease" ) + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
