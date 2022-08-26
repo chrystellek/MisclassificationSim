@@ -1,31 +1,45 @@
 # Scatterplots of one simulation for each scenario we ran through
 # may convert this to Rmd for the sake of chunks
 # could also make a function to plot these but that can be at a later time
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+
+set.seed(101)
 pop1 <- tibble(
-  E = as.integer(runif(1000, 1600, 2499)), 
-  Eerror = rnorm(1000, mean = 0, sd = 100), 
-  Eprime = E + Eerror, 
-  E_high = ifelse(E > 2200, 1, 0), 
-  Eprime_high = ifelse(Eprime > 2200,1, 0), 
-  E_mis = ifelse(E_high != Eprime_high, 1, 0),
+  E = as.integer(runif(1000, 1600, 2499)),  
+  Eerror100 = rnorm(1000, mean = 0, sd = 100), Eprime100 = as.integer(E + Eerror100), 
+  Eerror300 = rnorm(1000, mean = 0, sd = 300), Eprime300 = as.integer(E + Eerror300), 
+  Eerror500 = rnorm(1000, mean = 0, sd = 500), Eprime500 = as.integer(E + Eerror500), 
+  E_high = ifelse(E > 2200, 1, 0), Eprime100_high = ifelse(Eprime100 > 2200, 1, 0), 
+  Eprime300_high = ifelse(Eprime300 > 2200, 1, 0), Eprime500_high = ifelse(Eprime500 > 2200, 1, 0), 
   DA = as.factor(rbinom(n = 1000, size = 1, p = plogis(-4.5 + 0.0019*E))),
   DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
   DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
 )
 
-Scatter1A <- ggplot(pop1, aes(x = E, y = Eprime, color = DA)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "~Unif N = 1,000, RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
-Scatter1A
+range(pop1$Eprime500)
+# These are exposures ~Uniform, ME ~(0, 100), RR= 1.66
+Scatter1_100 <- ggplot(pop1, aes(x = E, y = Eprime100, color = DA)) + geom_point(alpha = 0.5) + scale_x_continuous(expand = c(0, 0), limits = c(1200, 2800), breaks = seq(2400, 2800, 400)) + scale_y_continuous(expand = c(0, 0), limits = c(200, 3800), breaks = seq(200, 4000, 400)) + labs(title = "A", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + coord_fixed() + theme_bw() 
+  
+Scatter1_300 <- ggplot(pop1, aes(x = E, y = Eprime300, color = DA)) + geom_point(alpha = 0.5) + scale_x_continuous(expand = c(0, 0), limits = c(1200, 2800), breaks = seq(1200, 2800, 400)) + scale_y_continuous(expand = c(0, 0), limits = c(200, 3800), breaks = seq(200, 4000, 400)) + labs(title = "B", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + coord_fixed() + theme_bw() 
 
-Scatter1B <- ggplot(pop1, aes(x = E, y = Eprime, color = DB)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "~Unif n = 1,000, RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+Scatter1_500 <- ggplot(pop1, aes(x = E, y = Eprime500, color = DA)) + geom_point(alpha = 0.5) + scale_x_continuous(expand = c(0, 0), limits = c(1200, 2800), breaks = seq(1200, 2800, 400)) + scale_y_continuous(expand = c(0, 0), limits = c(200, 3800), breaks = seq(200, 4000, 400)) + labs(title = "C", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + coord_fixed() + theme_bw() 
 
-Scatter1C <- ggplot(pop1, aes(x = E, y = Eprime, color = DC)) + geom_point() + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400,2800, 200)) + theme_bw() + labs(title = "~Unif n = 1,000, RR = 5.00", x = "True Value", y = "Measured Value ") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+  
+Scatter1B <- ggplot(pop1, aes(x = E, y = Eprime, color = DB)) + geom_point() + scale_x_continuous(expand = c(0, 0), limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(expand = c(0, 0), limits = c(1300, 2900), breaks = seq(1400,3000, 200)) + theme_bw() + labs(title = "B", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + coord_fixed()
+
+Scatter1C <- ggplot(pop1, aes(x = E, y = Eprime, color = DC)) + geom_point() + scale_x_continuous(expand = c(0, 0), limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(expand = c(0, 0), limits = c(1300, 2900), breaks = seq(1400,3000, 200)) + theme_bw() + labs(title = "C", x = "True Value", y = "Measured Value ") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + coord_fixed()
 
 
 # For now I am creating one plot at a time. It is probably possible to do this more efficiently (maybe long format vs. wide) but that is a problem for a later time...
 
+
+
 # A. a = -4.5, b = 0.0019 
 # B. a = -8.0, b = 0.0035
 # 3. a = -16.0, b = 0.0072
+set.seed(101)
 pop5 <- tibble(
   E = rnorm(1000, mean = 2050, sd = 150), 
   Eerror100 = rnorm(1000, mean = 0, sd = 100), Eprime100 = E + Eerror100, 
@@ -37,8 +51,17 @@ pop5 <- tibble(
   DB = as.factor(rbinom(n = 1000, size = 1, p = plogis(-8.0 + 0.0035*E))),
   DC = as.factor(rbinom(n = 1000, size = 1, p = plogis(-16.0 + 0.0072*E)))
 )
+# These are exposures ~E(2050, 150), ME ~(0, 100), RR= 1.66
+Scatter5A_100 <- ggplot(pop5, aes(x = E, y = Eprime100, color = DA)) + geom_point(alpha = 0.5) + scale_x_continuous(expand = c(0, 0), limits = c(1200, 2800), breaks = seq(1200, 2800, 400)) + scale_y_continuous(expand = c(0, 0), limits = c(200, 3800), breaks = seq(200, 4000, 400)) + labs(title = "D", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_bw() + coord_fixed()
 
-Scatter5A_100 <- ggplot(pop5, aes(x = E, y = Eprime100, color = DA)) + geom_point(alpha = 0.5) + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~N(2050,150), ME ~N(0,100) RR = 1.66", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_classic()
+Scatter5A_300 <- ggplot(pop5, aes(x = E, y = Eprime300, color = DA)) + geom_point(alpha = 0.5) + scale_x_continuous(expand = c(0, 0), limits = c(1200, 2800), breaks = seq(1200, 2800, 400)) + scale_y_continuous(expand = c(0, 0), limits = c(200, 3800), breaks = seq(200, 4000, 400)) + labs(title = "E", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_bw() + coord_fixed()
+
+Scatter5A_500 <- ggplot(pop5, aes(x = E, y = Eprime500, color = DA)) + geom_point(alpha = 0.5) + scale_x_continuous(expand = c(0, 0), limits = c(1200, 2800), breaks = seq(1200, 2800, 400)) + scale_y_continuous(expand = c(0, 0), limits = c(200, 3800), breaks = seq(200, 4000, 400)) + labs(title = "F", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_bw() + coord_fixed()
+
+combo1 <- grid.arrange(Scatter1_100, Scatter1_300, Scatter1_500, Scatter5A_100, Scatter5A_300, Scatter5A_500, ncol = 3)
+
+ggsave("plots1.png", combo1,  width = 11, height = 8, units = "in")
+### 
 
 Scatter5B_100 <- ggplot(pop5, aes(x = E, y = Eprime100, color = DB)) + geom_point(alpha = 0.5) + scale_x_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + scale_y_continuous(limits = c(1400, 2800), breaks = seq(1400, 2800, 200)) + theme_bw() + labs(title = "E ~N(2050,150), ME ~N(0,100) RR = 2.49", x = "True Value", y = "Measured Value", color = "Disease") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed") + theme_classic()
 
