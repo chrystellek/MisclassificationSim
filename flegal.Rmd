@@ -19,122 +19,8 @@ true exposure values range integers 1,600 - 2,499, high/low cutoff of 2,200
 standard deviation of measurement error varied at 100, 300, 500  
 
 ### Recreating simulations
-Created a function to replicate the scenario from Flegal et al that outputs the Se and Sp overall and by disease status.  
-This is the first working one that does not have disease fixed across simulations- used to create results shared Aug 10 with group
-```{r function1}
-flegal_sim <- function(N, min, max, cutpt, a, b, sigma, sims){
-# True exposure
-E <- seq(from = min, to = max, length.out = N) 
-  # initialize variables that we want to keep
-  Se_all <- c()
-  Se_D1 <- c()
-  Se_D0 <- c()
-  Sp_all <- c()
-  Sp_D1 <- c()
-  Sp_D0 <- c()
-  RR_true <- c()
-  RR_obs <- c()
-  
-  for (i in 1:sims){
-  # set up
-    Eerror <- rnorm(N, mean = 0, sd = sigma)
-    Eprime <- E + Eerror
-    E_high <- ifelse(E > cutpt, 1, 0)
-    Eprime_high <- ifelse(Eprime > cutpt,1, 0)
-    D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-    
-  # storing Se, Sp, RR values for each simulation
-    Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
-    Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
-    Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
-    
-    Sp_all[i] <- sum(Eprime_high==0 & E_high==0)/sum(E_high==0)
-    Sp_D1[i] <- sum(Eprime_high[D==1]==0 & E_high[D==1]==0)/sum(E_high[D==1]==0)
-    Sp_D0[i] <- sum(Eprime_high[D==0]==0 & E_high[D==0]==0)/sum(E_high[D==0]==0)
-    
-    RR_true[i] <- ((sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0)))
-    RR_obs[i] <- ((sum(D==1 & Eprime_high==1)/sum(Eprime_high==1))/(sum(D==1 & Eprime_high==0)/sum(Eprime_high==0)))
-  }
-  
-  params <- data.frame(N, cutpt, a, b, sims, sigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true), mean(RR_obs))
-  
-  colnames(params) <- c("N", "cutoff", "a", "b", "Nsim", "SD", "Se all", "Se D=1", "Se D=0", "Sp all", "Sp D=1", "Sp D=0", "RR true", "RR obs")
-  return(params)
-}
-
-set.seed(30308)
-
-# case 1 is repeating the simulations from the paper 
-# A. a = -4.5, b = 0.0019 
-scenarioA1_100 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 100, 200)
-scenarioA1_300 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 300, 200)
-scenarioA1_500 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 500, 200)
-# B. a = -8.0, b = 0.0035
-scenarioB1_100 <- flegal_sim(200, 1600, 2499, 2200, -8.0, 0.0035, 100, 200)
-scenarioB1_300 <- flegal_sim(200, 1600, 2499, 2200, -8.0, 0.0035, 300, 200)
-scenarioB1_500 <- flegal_sim(200, 1600, 2499, 2200, -8.0, 0.0035, 500, 200)
-# C. a = -16.0, b = 0.0072
-scenarioC1_100 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 100, 200)
-scenarioC1_300 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 300, 200)
-scenarioC1_500 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 500, 200)
-scenario1 <- rbind(scenarioA1_100, scenarioA1_300, scenarioA1_500, scenarioB1_100, scenarioB1_300, scenarioB1_500, scenarioC1_100, scenarioC1_300, scenarioC1_500)
-```
-
-The first time I made this function, disease was being assigned anew each simulation except for exposure. To reduce variability, created function that will fix the exposure AND disease status before measurement error is simulated. Note though that Flegal et al. did not fix disease before simulations, since they present averages of the "true" and "observed" RRs (Table 3).  
-
-This version is meant for one value of the SD of ME (removed some of the arguments to make it easier to test)
-```{r createsim, eval = FALSE}
-flegal_sim1 <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
- # values <- matrix(nrow = length(Nsims), ncol = 8, dimnames = list(c(),c("E", "D", "Eerror", "Eprime", "Ehigh", "Eprimehigh")))
-  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  results <- matrix(nrow = 1, ncol = 11, dimnames = list(c(), c("N", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
- # results <- data.frame()
-   allresults <- data.frame()
-  
-  # fixed exposure values and disease status. Using seq to ensure same numbers every time
-  E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-  
- # for (j in seq_along(MEsigma)){
-    
-    for (i in 1:Nsims){
-      # want to store these then afterwards take the means or something
-      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
-      Eprime <- E + Eerror
-      Ehigh <- ifelse(E > cutpt, 1, 0)
-      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-    
-    # creating a new matrix based on those values. These are not Flegal formulas?
-      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
-      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
-      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
-      
-      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
-      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
-      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
-      
-      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
-      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-    }
-
-  results <- cbind(N, Nsims, MEsigma, mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-  
-  return(results)
-}
-# i know it's not good variable naming but it's just for testing
-
-orange <- c(100, 300, 500) 
-pepper <- flegal_sim1(100, 1600, 2499, 2200, -4.5, 0.0019, 100, 200)
-pepper
-
-set.seed(303)
-trial2 <- data.frame(matrix(nrow = 3, ncol = 11))
-for (j in seq_along(ME_SD)){
-  trial2[j,] <- flegal_onesim(100, 1600, 2499, 2200, -4.5, 0.0019, ME_SD[[j]], 200)
-}
-# View(trial2)
-```
-
+Created a function to replicate the scenario from Flegal et al that outputs the Se and Sp overall and by disease status.
+The first time I made this function, disease was being assigned anew each simulation except for exposure. (Is in a chunk later in code). To reduce variability, created function that will fix the exposure AND disease status before measurement error is simulated. Note though that Flegal et al. did not fix disease before simulations, since they present averages of the "true" and "observed" RRs (Table 3).  
 
 
 # Fixed disease before simulations
@@ -211,9 +97,7 @@ case1B <- flegal_sim_fixed(100, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 200)
 case1C <- flegal_sim_fixed(100, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 200)
 
 case1 <- rbind(case1A, case1B, case1C)
-
-set.seed(10)
-testcase1A <- flegal_sim_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200)
+case1
 ```
 The one-off results differ from the original across the board  
 
@@ -230,6 +114,7 @@ case2B <- flegal_sim_fixed(100, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
 case2C <- flegal_sim_fixed(100, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
 
 case2 <- rbind(case2A, case2B, case2C)
+
 case2
 ```
 
@@ -303,14 +188,14 @@ case3 <- ucase3
 
 *Case 4*  
 Increasing the number of samples to 100,000 (1,000,000 took too long)      
-```{r case4, eval = FALSE}
+```{r case4, eval = F}
 set.seed(303)
 case4A <- uni_sim_fixed(100000, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000)
 case4B <- uni_sim_fixed(100000, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
 case4C <- uni_sim_fixed(100000, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
 
 case4 <- rbind(case4A, case4B, case4C)
-
+case4
 ```
 
 
@@ -356,9 +241,103 @@ for (j in seq_along(MEsigma)){
   return(params)
 }
 
-######################################
+```
 
-# disease not fixed
+Previous range is 1,600 to 2,499. 
+If mean = midpoint of 2050, SD of 150 would make most of the values fall within 1,600 - 2,5000 range. 
+Is there reason to believe that the exposure distribution would be affected by probability of disease?   
+
+
+Case 5: Changing the exposure distribution to ~N(2050, 150)    
+```{r case5}
+set.seed(303)
+# A. a = -4.5, b = 0.0019; B. a = -8.0, b = 0.0035; C. a = -16.0, b = 0.0072
+# N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims
+case5A <- normal_sim_fixed(1000, 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
+case5B <- normal_sim_fixed(1000, 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
+case5C <- normal_sim_fixed(1000, 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
+
+case5 <- rbind(case5A, case5B, case5C)
+
+##### Other ~N
+# Case 6: Normal distribution around the cutpoint (mean 2,200)  
+# Case 7: exposure ~N but 'high' is rare (mean 1,900)
+# Case 8: big sample size
+
+case6A <- normal_sim_fixed(1000, 2200, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
+case6B <- normal_sim_fixed(1000, 2200, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
+case6C <- normal_sim_fixed(1000, 2200, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
+
+case6 <- rbind(case6A, case6B, case6C)
+
+case7A <- normal_sim_fixed(1000, 1900, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
+case7B <- normal_sim_fixed(1000, 1900, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
+case7C <- normal_sim_fixed(1000, 1900, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
+
+case7 <- rbind(case7A, case7B, case7C)
+```
+
+
+```{r huge, eval = FALSE}
+set.seed(303)
+case8A <- normal_sim_fixed(100000, 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
+case8B <- normal_sim_fixed(100000, 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
+case8C <- normal_sim_fixed(100000, 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
+
+case8 <- rbind(case8A, case8B, case8C)
+```
+
+
+```{r savestuff, include = FALSE, eval = FALSE}
+# at this point, I typically export as csv but with uniform cases in one grouping and normal separately, since the variables retained are slightly different. I then create an xlsx to combine
+unifs <- rbind(case1, case2, case3, case4)
+norms <- rbind(case5, case6, case7, case8)
+write.csv(unifs, "uniform.csv")
+write.csv(norms, "normal.csv")
+```
+
+#### Disease not fixed at each simulation
+
+```{r morefunctions, eval = FALSE}
+uni_sim <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
+    
+  E <- as.integer(runif(N, min = Emin, max = Emax))  
+  
+  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
+
+  
+  for (j in seq_along(MEsigma)){
+  
+    for (i in 1:Nsims){
+      D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
+      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+      Eprime <- E + Eerror
+      Ehigh <- ifelse(E > cutpt, 1, 0)
+      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
+    
+      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
+      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
+      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
+      
+      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
+      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
+      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
+      
+      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
+      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
+ 
+    }
+  #  "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
+  results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+  }
+  
+  results <- as.data.frame(results)
+  return(results)
+  
+}
+
+# Normal
 normal_sim <- function(N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims){
   E <- rnorm(N, mean = Emean, sd = Esigma)
   
@@ -394,69 +373,106 @@ for (j in seq_along(MEsigma)){
   params <- as.data.frame(params) 
   return(params)
 }
+
+flegal_sim <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
+ 
+   E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
+  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  
+   allresults <- data.frame()
+ 
+    
+  for (j in seq_along(MEsigma)){
+    
+    for (i in 1:Nsims){
+      D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
+      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+      Eprime <- E + Eerror
+      Ehigh <- ifelse(E > cutpt, 1, 0)
+      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
+    
+      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
+      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
+      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
+      
+      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
+      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
+      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
+      
+      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
+      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
+     }
+    # "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs"
+  results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+  
+  }
+ 
+  allresults <- as.data.frame(results)
+  return(allresults)
+}
 ```
 
-Previous range is 1,600 to 2,499. 
-If mean = midpoint of 2050, SD of 150 would make most of the values fall within 1,600 - 2,5000 range. 
-Is there reason to believe that the exposure distribution would be affected by probability of disease?   
+  
+This is the first working one that does not have disease fixed across simulations- used to create results shared Aug 10 with group
+```{r function1, eval = FALSE}
+flegal_sim <- function(N, min, max, cutpt, a, b, sigma, sims){
+# True exposure
+E <- seq(from = min, to = max, length.out = N) 
+  # initialize variables that we want to keep
+  Se_all <- c()
+  Se_D1 <- c()
+  Se_D0 <- c()
+  Sp_all <- c()
+  Sp_D1 <- c()
+  Sp_D0 <- c()
+  RR_true <- c()
+  RR_obs <- c()
+  
+  for (i in 1:sims){
+  # set up
+    Eerror <- rnorm(N, mean = 0, sd = sigma)
+    Eprime <- E + Eerror
+    E_high <- ifelse(E > cutpt, 1, 0)
+    Eprime_high <- ifelse(Eprime > cutpt,1, 0)
+    D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
+    
+  # storing Se, Sp, RR values for each simulation
+    Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
+    Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
+    Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
+    
+    Sp_all[i] <- sum(Eprime_high==0 & E_high==0)/sum(E_high==0)
+    Sp_D1[i] <- sum(Eprime_high[D==1]==0 & E_high[D==1]==0)/sum(E_high[D==1]==0)
+    Sp_D0[i] <- sum(Eprime_high[D==0]==0 & E_high[D==0]==0)/sum(E_high[D==0]==0)
+    
+    RR_true[i] <- ((sum(D==1 & E_high==1)/sum(E_high==1))/(sum(D==1 & E_high==0)/sum(E_high==0)))
+    RR_obs[i] <- ((sum(D==1 & Eprime_high==1)/sum(Eprime_high==1))/(sum(D==1 & Eprime_high==0)/sum(Eprime_high==0)))
+  }
+  
+  params <- data.frame(N, cutpt, a, b, sims, sigma, mean(Se_all), mean(Se_D1), mean(Se_D0), mean(Sp_all), mean(Sp_D1), mean(Sp_D0), mean(RR_true), mean(RR_obs))
+  
+  colnames(params) <- c("N", "cutoff", "a", "b", "Nsim", "SD", "Se all", "Se D=1", "Se D=0", "Sp all", "Sp D=1", "Sp D=0", "RR true", "RR obs")
+  return(params)
+}
 
+set.seed(30308)
 
-Case 5: Changing the exposure distribution to ~N(2050, 150)    
-```{r case5}
-set.seed(303)
-MEsigma <- c(100, 300, 500)
-# A. a = -4.5, b = 0.0019; B. a = -8.0, b = 0.0035; C. a = -16.0, b = 0.0072
-# N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims
-case5A <- normal_sim_fixed(1000, 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
-case5B <- normal_sim_fixed(1000, 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
-case5C <- normal_sim_fixed(1000, 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
-
-case5 <- rbind(case5A, case5B, case5C)
-
-```
-Seems like there is still have some level of differential misclassification, but smaller difference between diseased and non-diseased for both Se and Sp.  
-
-
-##### Other ~N
-Case 6: Normal distribution around the cutpoint (mean 2,200)  
-Case 7: exposure ~N but 'high' is rare (mean 1,900)
-Case 8: big sample size
-
-```{r case6sim}
+# case 1 is repeating the simulations from the paper 
 # A. a = -4.5, b = 0.0019 
+scenarioA1_100 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 100, 200)
+scenarioA1_300 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 300, 200)
+scenarioA1_500 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 500, 200)
 # B. a = -8.0, b = 0.0035
+scenarioB1_100 <- flegal_sim(200, 1600, 2499, 2200, -8.0, 0.0035, 100, 200)
+scenarioB1_300 <- flegal_sim(200, 1600, 2499, 2200, -8.0, 0.0035, 300, 200)
+scenarioB1_500 <- flegal_sim(200, 1600, 2499, 2200, -8.0, 0.0035, 500, 200)
 # C. a = -16.0, b = 0.0072
-set.seed(303)
-MEsigma <- c(100, 300, 500)
-
-case6A <- normal_sim_fixed(1000, 2200, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
-case6B <- normal_sim_fixed(1000, 2200, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
-case6C <- normal_sim_fixed(1000, 2200, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
-
-case6 <- rbind(case6A, case6B, case6C)
-
-case7A <- normal_sim_fixed(1000, 1900, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
-case7B <- normal_sim_fixed(1000, 1900, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
-case7C <- normal_sim_fixed(1000, 1900, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
-
-case7 <- rbind(case7A, case7B, case7C)
-
-case8A <- normal_sim_fixed(100000, 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
-case8B <- normal_sim_fixed(100000, 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
-case8C <- normal_sim_fixed(100000, 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
-
-case8 <- rbind(case8A, case8B, case8C)
+scenarioC1_100 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 100, 200)
+scenarioC1_300 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 300, 200)
+scenarioC1_500 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 500, 200)
+scenario1 <- rbind(scenarioA1_100, scenarioA1_300, scenarioA1_500, scenarioB1_100, scenarioB1_300, scenarioB1_500, scenarioC1_100, scenarioC1_300, scenarioC1_500)
 ```
-
-
-```{r savestuff, include = FALSE, eval = FALSE}
-# at this point, I typically export as csv but with uniform cases in one grouping and normal separately, since the variables retained are slightly different. I then create an xlsx to combine
-unifs <- rbind(case1, case2, case3, case4)
-norms <- rbind(case5, case6, case7)
-write.csv(unifs, "uniform.csv")
-write.csv(norms, "normal.csv")
-```
-
 
 
 #### Recreating original figures  
@@ -515,6 +531,7 @@ pop0$a <- 1 - pnorm(pop0$E_diff, 0, 150)
 
 # Figure 2
 flegal_figure2 <- ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 2. Prob of misclassification (dashed) & prob of disease (solid)", x = "True Value", y = "Probability")
+flegal_figure2
 
 # expected probability of disease p as a quadratic function of E
 pop0$expected_pD_quad <- 6.592 - 0.00673*pop0$E + 0.00000172*(pop0$E**2)
@@ -526,7 +543,8 @@ flegal_figure3 <- ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD_quad)
 pop0$a100 <- 1 - pnorm(pop0$E_diff, 0, 100)
 pop0$a300 <- 1 - pnorm(pop0$E_diff, 0, 300)
 pop0$a500 <- 1 - pnorm(pop0$E_diff, 0, 500)
-mis_plot <- ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD), color = "darkgrey") + geom_line(aes(y = a), linetype = 2) + geom_line(aes(y = a100), color = "green") + geom_line(aes(y = a300), color = "green3") + geom_line(aes(y = a500), color = "darkgreen") + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Prob of misclassification & prob of disease (solid)", x = "True Value", y = "Probability")
+
+ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD), color = "darkgrey") + geom_line(aes(y = a), linetype = 2) + geom_line(aes(y = a100), color = "green") + geom_line(aes(y = a300), color = "green3") + geom_line(aes(y = a500), color = "darkgreen") + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Prob of misclassification & prob of disease (solid)", x = "True Value", y = "Probability")
 
 ```
 The green lines are the expected probabilities of misclassification. 
