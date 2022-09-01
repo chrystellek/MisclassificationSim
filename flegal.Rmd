@@ -32,7 +32,9 @@ Function arguments:
 * MEsigma: vector of the standard deviations of measurement error  
 * Nsims: number of simulations 
 
-```{r flegalfunction}
+```{r flegalfunctions}
+# These are with fixed disease before simulations
+
 flegal_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
   # fixed exposure values and disease status. Using seq to ensure same numbers as paper
   E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
@@ -72,55 +74,6 @@ flegal_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
   return(allresults)
 }
 
-orange <- c(100, 300, 500)
-test1 <- flegal_sim_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, orange, 200)
-```
-Okay... I am a little concerned about how close the values are together. I have tried this approach outside of the function and it seemed to work. So... what does that mean now about the main point now that we removed variability in disease assignment?
-
-
-
-##### CASE 1  
-
-So for the main simulations, they originally varied:  
-
-* standard deviation of measurement error: 100, 300, 500  
-* three sets of (a, b) parameters for disease: (-4.5, 0.0019), (-8.0, 0.0035), (-16.0, 0.0072)  
-and did 200 simulations of each on the nine combinations.  
-
-```{r case1}
-set.seed(303)
-# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
-MEsigma <- c(100, 300, 500)
-# A, B, C reflect the different regression models/ RR
-case1A <- flegal_sim_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200)
-case1B <- flegal_sim_fixed(100, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 200)
-case1C <- flegal_sim_fixed(100, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 200)
-
-case1 <- rbind(case1A, case1B, case1C)
-case1
-```
-The one-off results differ from the original across the board  
-
-
-
-##### CASE 2  
-Repeating the same but with 1000 simulations. Everything else is same. 
-```{r, case2}
-set.seed(303)
-# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
-# A, B, C reflect the different regression models/ RR
-case2A <- flegal_sim_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000)
-case2B <- flegal_sim_fixed(100, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
-case2C <- flegal_sim_fixed(100, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
-
-case2 <- rbind(case2A, case2B, case2C)
-
-case2
-```
-
-
-I think for N>900 (difference between min and max) it makes more sense to use uniform distribution to create the exposure. This means there may be variation in exposure values in each run... 
-```{r unifunction}
 uni_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
     
   E <- as.integer(runif(N, min = Emin, max = Emax))  
@@ -159,8 +112,85 @@ uni_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
   
 }
 
+normal_sim_fixed <- function(N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims){
+  
+  E <- as.integer(rnorm(N, mean = Emean, sd = Esigma))
+  D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
+  
+  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  params <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
+
+  
+for (j in seq_along(MEsigma)){
+  
+  for (i in 1:Nsims){
+      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+      Eprime <- E + Eerror
+      Ehigh <- ifelse(E > cutpt, 1, 0)
+      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
+    
+      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
+      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
+      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
+      
+      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
+      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
+      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
+      
+      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
+      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
+  }
+#  "N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
+    params[j,] <- cbind(N, Emean, Esigma, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+
+}
+  
+  params <- as.data.frame(params) 
+  return(params)
+}
 ```
-##### Uniform distribution with increased sample size
+
+
+
+##### Uniform distributions
+
+So for the main simulations, they originally varied:  
+
+* standard deviation of measurement error: 100, 300, 500  
+* three sets of (a, b) parameters for disease: (-4.5, 0.0019), (-8.0, 0.0035), (-16.0, 0.0072)  
+and did 200 simulations of each on the nine combinations.  
+
+```{r repeat}
+# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
+MEsigma <- c(100, 300, 500)
+set.seed(303)
+# A, B, C reflect the different regression models/ RR
+
+case1A <- flegal_sim_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200)
+case1B <- flegal_sim_fixed(100, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 200)
+case1C <- flegal_sim_fixed(100, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 200)
+
+case1 <- rbind(case1A, case1B, case1C)
+case1
+```
+
+*Case 2* Repeating the same but with 1000 simulations. Everything else is same.  
+
+
+```{r, case2}
+set.seed(303)
+# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
+# A, B, C reflect the different regression models/ RR
+case2A <- flegal_sim_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000)
+case2B <- flegal_sim_fixed(100, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
+case2C <- flegal_sim_fixed(100, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
+
+case2 <- rbind(case2A, case2B, case2C)
+
+case2
+```
+
+
 *Case 3*  
 Increasing the number of samples from **100** to **1000*.  
 From here on out, using 1,000 samples and 1,000 simulations.  
@@ -199,57 +229,17 @@ case4
 ```
 
 
-What happens if we make exposure normally distributed?  
-
-##### CASE 5  
-New function for normal distribution
-```{r createnorm}
-normal_sim_fixed <- function(N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims){
-  
-  E <- rnorm(N, mean = Emean, sd = Esigma)
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
-  
-  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  params <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-
-  
-for (j in seq_along(MEsigma)){
-  
-  for (i in 1:Nsims){
-      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
-      Eprime <- E + Eerror
-      Ehigh <- ifelse(E > cutpt, 1, 0)
-      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-    
-      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
-      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
-      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
-      
-      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
-      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
-      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
-      
-      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
-      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-  }
-#  "N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
-    params[j,] <- cbind(N, Emean, Esigma, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-
-}
-  
-  params <- as.data.frame(params) 
-  return(params)
-}
-
-```
 
 Previous range is 1,600 to 2,499. 
 If mean = midpoint of 2050, SD of 150 would make most of the values fall within 1,600 - 2,5000 range. 
 Is there reason to believe that the exposure distribution would be affected by probability of disease?   
 
+Normally distributed exposure:  
+*Case 5* Changing the exposure distribution to ~N(2050, 150)    
+*Case 6* Exposure distribution centered about midpoint  
+*Case 7* Rare exposure (mean is lower than midpoint)  
 
-Case 5: Changing the exposure distribution to ~N(2050, 150)    
-```{r case5}
+```{r normals}
 set.seed(303)
 # A. a = -4.5, b = 0.0019; B. a = -8.0, b = 0.0035; C. a = -16.0, b = 0.0072
 # N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims
@@ -298,11 +288,10 @@ write.csv(norms, "normal.csv")
 
 #### Disease not fixed at each simulation
 
-```{r morefunctions, eval = FALSE}
+```{r morefunctions}
 uni_sim <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
     
   E <- as.integer(runif(N, min = Emin, max = Emax))  
-  
   values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
   results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
 
