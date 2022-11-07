@@ -33,19 +33,19 @@ Function arguments:
 * Nsims: number of simulations 
 
 ```{r flegalfunctions}
-# These are with fixed disease before simulations
+# These are with fixed exposure and disease before simulations
 
 flegal_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
   # fixed exposure values and disease status. Using seq to ensure same numbers as paper
   E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
   D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-
+  
   values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
   results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
   
-   allresults <- data.frame()
- 
-    
+  allresults <- data.frame()
+  
+  
   for (j in seq_along(MEsigma)){
     
     for (i in 1:Nsims){
@@ -53,7 +53,7 @@ flegal_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
       Eprime <- E + Eerror
       Ehigh <- ifelse(E > cutpt, 1, 0)
       Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-    
+      
       values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
       values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
       values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
@@ -64,33 +64,33 @@ flegal_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
       
       values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
       values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-     }
+    }
     # "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs"
-  results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-  
+    results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+    
   }
- 
+  
   allresults <- as.data.frame(results)
   return(allresults)
 }
 
 uni_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
-    
+  
   E <- as.integer(runif(N, min = Emin, max = Emax))  
   D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
   
   values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
   results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
-
+  
   
   for (j in seq_along(MEsigma)){
-  
+    
     for (i in 1:Nsims){
       Eerror <- rnorm(N, mean = 0, sd = MEsigma)
       Eprime <- E + Eerror
       Ehigh <- ifelse(E > cutpt, 1, 0)
       Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-    
+      
       values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
       values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
       values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
@@ -101,10 +101,10 @@ uni_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
       
       values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
       values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
- 
+      
     }
-  #  "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
-  results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+    #  "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
+    results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
   }
   
   results <- as.data.frame(results)
@@ -119,16 +119,16 @@ normal_sim_fixed <- function(N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims){
   
   values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
   params <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-
   
-for (j in seq_along(MEsigma)){
   
-  for (i in 1:Nsims){
+  for (j in seq_along(MEsigma)){
+    
+    for (i in 1:Nsims){
       Eerror <- rnorm(N, mean = 0, sd = MEsigma)
       Eprime <- E + Eerror
       Ehigh <- ifelse(E > cutpt, 1, 0)
       Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-    
+      
       values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
       values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
       values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
@@ -139,18 +139,148 @@ for (j in seq_along(MEsigma)){
       
       values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
       values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-  }
-#  "N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
+    }
+    #  "N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
     params[j,] <- cbind(N, Emean, Esigma, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-
-}
+    
+  }
   
   params <- as.data.frame(params) 
   return(params)
 }
 ```
 
+## Another attempt
+Decision to make: fix E distribution and try many fixed D, or many sims of E and D up top but E can also change? 
+```{r flegalfunctions2, eval = F}
+# trying to iterate through fixed disease for each ME sim, but simulate across different disease assignments as well
+flegal_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
+  intermedresults <- matrix(nrow = length(Nsims), ncol = 16)
+  allresults <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  
+  for (k in 1:Nsims){
+    E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
+    D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
+    
+    values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
+    results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
+    
+    for (j in seq_along(MEsigma)){
+      
+      for (i in 1:Nsims){
+        Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+        Eprime <- E + Eerror
+        Ehigh <- ifelse(E > cutpt, 1, 0)
+        Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
+        
+        values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
+        values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
+        values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
+        
+        values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
+        values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
+        values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
+        
+        values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
+        values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
+      }
+      # "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs"
+      results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+    # creates matrix with 3 rows  
+    }
+    # do I need to first create matrix to store all results: so nrows = Nsims, then bind those 
+    # want to create a matrix where I define rows 1, 2, 3 
+    # i have not run this - I am confused. 
+    intermedresults[k,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, results[1,8], results[1,9], results[1,10], results[1,11], results[1,12], results[1,13], results[1,14], results[1,15], results[1,16])
+    intermedresults[2,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, results[2,8], results[2,9], results[2,10], results[2,11], results[2,12], results[2,13], results[2,14], results[2,15], results[2,16])
+    intermedresults[3,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, results[3,8], results[3,9], results[3,10], results[3,11], results[3,12], results[3,13], results[3,14], results[3,15], results[3,16])
+   
+     allresults[1,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, mean(intermedresults[1,8]), mean(intermedresults[1,9]), mean(intermedresults[1,10]), mean(intermedresults[1,11]), mean(intermedresults[1,12]), mean(intermedresults[1,13]), mean(intermedresults[1,14]), mean(intermedresults[1,15]), mean(intermedresults[1,16]))
+  }
+  allresults <- as.data.frame(allresults)
+  return(allresults)
+}
+orange <- c(100, 300, 500)
+test1 <- flegal_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200)
+```
 
+
+```{r}  
+uni_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
+  
+  E <- as.integer(runif(N, min = Emin, max = Emax))  
+  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
+  
+  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  
+  
+  for (j in seq_along(MEsigma)){
+    
+    for (i in 1:Nsims){
+      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+      Eprime <- E + Eerror
+      Ehigh <- ifelse(E > cutpt, 1, 0)
+      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
+      
+      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
+      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
+      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
+      
+      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
+      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
+      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
+      
+      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
+      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
+      
+    }
+    #  "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
+    results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+  }
+  
+  results <- as.data.frame(results)
+  return(results)
+  
+}
+
+normal_sim_fixed <- function(N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims){
+  
+  E <- as.integer(rnorm(N, mean = Emean, sd = Esigma))
+  D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
+  
+  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  params <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  
+  
+  for (j in seq_along(MEsigma)){
+    
+    for (i in 1:Nsims){
+      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+      Eprime <- E + Eerror
+      Ehigh <- ifelse(E > cutpt, 1, 0)
+      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
+      
+      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
+      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
+      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
+      
+      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
+      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
+      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
+      
+      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
+      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
+    }
+    #  "N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
+    params[j,] <- cbind(N, Emean, Esigma, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+    
+  }
+  
+  params <- as.data.frame(params) 
+  return(params)
+}
+```
 
 ##### Uniform distributions
 
@@ -195,7 +325,7 @@ case2
 Increasing the number of samples from **100** to **1000*.  
 From here on out, using 1,000 samples and 1,000 simulations.  
 Comparing results from both functions
-```{r case3}
+```{r case3, eval = F}
 set.seed(303)
 # function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
 # A, B, C reflect the different regression models/ RR
@@ -239,7 +369,7 @@ Normally distributed exposure:
 *Case 6* Exposure distribution centered about midpoint  
 *Case 7* Rare exposure (mean is lower than midpoint)  
 
-```{r normals}
+```{r normals, eval = F}
 set.seed(303)
 # A. a = -4.5, b = 0.0019; B. a = -8.0, b = 0.0035; C. a = -16.0, b = 0.0072
 # N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims
@@ -288,23 +418,23 @@ write.csv(norms, "normal.csv")
 
 #### Disease not fixed at each simulation
 
-```{r morefunctions}
+```{r morefunctions, eval = F}
 uni_sim <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
-    
+  
   E <- as.integer(runif(N, min = Emin, max = Emax))  
   values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
   results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
-
+  
   
   for (j in seq_along(MEsigma)){
-  
+    
     for (i in 1:Nsims){
       D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
       Eerror <- rnorm(N, mean = 0, sd = MEsigma)
       Eprime <- E + Eerror
       Ehigh <- ifelse(E > cutpt, 1, 0)
       Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-    
+      
       values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
       values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
       values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
@@ -315,10 +445,10 @@ uni_sim <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
       
       values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
       values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
- 
+      
     }
-  #  "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
-  results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+    #  "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
+    results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
   }
   
   results <- as.data.frame(results)
@@ -333,16 +463,16 @@ normal_sim <- function(N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims){
   values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
   
   params <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-
-for (j in seq_along(MEsigma)){
   
-  for (i in 1:Nsims){
+  for (j in seq_along(MEsigma)){
+    
+    for (i in 1:Nsims){
       D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
       Eerror <- rnorm(N, mean = 0, sd = MEsigma)
       Eprime <- E + Eerror
       Ehigh <- ifelse(E > cutpt, 1, 0)
       Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-    
+      
       values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
       values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
       values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
@@ -353,25 +483,25 @@ for (j in seq_along(MEsigma)){
       
       values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
       values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-  }
-  
+    }
+    
     params[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-
-}
+    
+  }
   
   params <- as.data.frame(params) 
   return(params)
 }
 
 flegal_sim <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
- 
-   E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
+  
+  E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
   values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
   results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
   
-   allresults <- data.frame()
- 
-    
+  allresults <- data.frame()
+  
+  
   for (j in seq_along(MEsigma)){
     
     for (i in 1:Nsims){
@@ -380,7 +510,7 @@ flegal_sim <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
       Eprime <- E + Eerror
       Ehigh <- ifelse(E > cutpt, 1, 0)
       Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-    
+      
       values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
       values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
       values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
@@ -391,23 +521,23 @@ flegal_sim <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
       
       values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
       values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-     }
+    }
     # "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs"
-  results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-  
+    results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
+    
   }
- 
+  
   allresults <- as.data.frame(results)
   return(allresults)
 }
 ```
 
-  
+
 This is the first working one that does not have disease fixed across simulations- used to create results shared Aug 10 with group
 ```{r function1, eval = FALSE}
 flegal_sim <- function(N, min, max, cutpt, a, b, sigma, sims){
-# True exposure
-E <- seq(from = min, to = max, length.out = N) 
+  # True exposure
+  E <- seq(from = min, to = max, length.out = N) 
   # initialize variables that we want to keep
   Se_all <- c()
   Se_D1 <- c()
@@ -419,14 +549,14 @@ E <- seq(from = min, to = max, length.out = N)
   RR_obs <- c()
   
   for (i in 1:sims){
-  # set up
+    # set up
     Eerror <- rnorm(N, mean = 0, sd = sigma)
     Eprime <- E + Eerror
     E_high <- ifelse(E > cutpt, 1, 0)
     Eprime_high <- ifelse(Eprime > cutpt,1, 0)
     D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
     
-  # storing Se, Sp, RR values for each simulation
+    # storing Se, Sp, RR values for each simulation
     Se_all[i] <- sum(Eprime_high==1 & E_high==1)/sum(E_high==1)
     Se_D1[i] <- sum(Eprime_high[D==1]==1 & E_high[D==1]==1)/sum(E_high[D==1]==1)
     Se_D0[i] <- sum(Eprime_high[D==0]==1 & E_high[D==0]==1)/sum(E_high[D==0]==1)
@@ -481,7 +611,7 @@ pop0 <- tibble(E = as.integer(seq(from = 1600, to = 2499, length.out = 100)),
                Eprime_high = ifelse(Eprime > 2200,1, 0),
                E_mis = ifelse(E_high != Eprime_high, 1, 0), 
                D = rbinom(n = 100, size = 1, p = plogis(-10 + 0.004*E))
-               )
+)
 
 sp1 <- ggplot(pop0, aes(x = E, y = Eprime)) + geom_point() + scale_x_continuous(limits = c(1400, 2600), breaks = seq(1400,2600, 200)) + scale_y_continuous(limits = c(1200, 2800), breaks = seq(1200,2800, 200)) + theme_bw()
 
