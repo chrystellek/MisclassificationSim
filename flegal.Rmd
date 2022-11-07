@@ -22,264 +22,97 @@ standard deviation of measurement error varied at 100, 300, 500
 Created a function to replicate the scenario from Flegal et al that outputs the Se and Sp overall and by disease status.
 The first time I made this function, disease was being assigned anew each simulation except for exposure. (Is in a chunk later in code). To reduce variability, created function that will fix the exposure AND disease status before measurement error is simulated. Note though that Flegal et al. did not fix disease before simulations, since they present averages of the "true" and "observed" RRs (Table 3).  
 
-
-# Fixed disease before simulations
 Function arguments:
-* N: sample size, uniformly distributed across range of exposure values  
-* Emin, Emax: range of exposure values
-* cutpt: the cutpoint for categorizing 
+* N: sample size, uniformly distributed across range of exposure values
+* distrib: "UNIF" or "NORM"
+* Eparam1, Eparam2: if uniform, this is min/ max of exposure values. if normal, this is mean and SD.
+* cutoff: the cutpoint for categorizing high/ low <cutoff
 * a, b: parameters for the linear logistic probability of disease
 * MEsigma: vector of the standard deviations of measurement error  
 * Nsims: number of simulations 
 
-```{r flegalfunctions}
-# These are with fixed exposure and disease before simulations
+```{r createfunctions}
+# this function does the exposure misclassification
+# I couldn't figure out how to make it all one function 
+measured_flegal <- function(N, E, D, cutoff, MEsigma, Nsims){
+  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c()))
+  # values <- data.frame()
+  results <- matrix(nrow = length(MEsigma), ncol = 9, dimnames = list(c(),c("ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
+  
 
-flegal_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
-  # fixed exposure values and disease status. Using seq to ensure same numbers as paper
-  E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-  
-  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  
-  allresults <- data.frame()
-  
+  Ehigh <- ifelse(E > cutoff, 1, 0)
+  Eerror <- c()
+  Eprime <- c()
+  Eprimehigh <- c()
+
   
   for (j in seq_along(MEsigma)){
     
-    for (i in 1:Nsims){
+    for (i in 1:Nsims){  
       Eerror <- rnorm(N, mean = 0, sd = MEsigma)
       Eprime <- E + Eerror
-      Ehigh <- ifelse(E > cutpt, 1, 0)
-      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
+      Eprimehigh <- ifelse(Eprime > cutoff, 1, 0)
       
-      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
-      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
-      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
       
-      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
-      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
-      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
+      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1) #Se all
+      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1) #Se D=1
+      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1) #Se D=0
       
-      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
-      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
+      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0) #Sp all
+      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0) #Sp D=1
+      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0) #Sp D=0
+      
+      values[i,7] <- (sum(D[Ehigh==1]==1)/sum(Ehigh==1))/(sum(D[Ehigh==0]==1)/sum(Ehigh==0)) #RR based on true exposure dichot
+      values[i,8] <- (sum(D[Eprimehigh==1]==1)/sum(Eprimehigh==1))/(sum(D[Eprimehigh==0]==1)/sum(Eprimehigh==0)) #RR measured
     }
-    # "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs"
-    results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-    
+    results[j,] <- cbind(MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
   }
-  
-  allresults <- as.data.frame(results)
-  return(allresults)
-}
-
-uni_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
-  
-  E <- as.integer(runif(N, min = Emin, max = Emax))  
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-  
-  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  
-  
-  for (j in seq_along(MEsigma)){
-    
-    for (i in 1:Nsims){
-      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
-      Eprime <- E + Eerror
-      Ehigh <- ifelse(E > cutpt, 1, 0)
-      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-      
-      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
-      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
-      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
-      
-      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
-      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
-      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
-      
-      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
-      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-      
-    }
-    #  "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
-    results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-  }
-  
-  results <- as.data.frame(results)
   return(results)
-  
 }
 
-normal_sim_fixed <- function(N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims){
+# This function calls previous function. E is fixed, D is not.
+# if distribution is UNIF, Eparam1 = E min, Eparam2 = E max
+# if distribution is NORM, Eparam1 = E mean, Eparam2 = standard deviation of exposure
+simulate_flegal <- function(N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsims, Ndisease){
+    output <- matrix(nrow = length(MEsigma), ncol = 18, 
+                   dimnames = list(c(),c("N", "Distrib", "Eparam1", "Eparam2", "cutoff", "a", "b", "Nsims", "Ndisease", "ME", 
+                                         "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue","RRobs")))
+  E <- c()
+  D <- c()
+  cutoff <- cutoff
+  MEsigma <- MEsigma
+  # initializing for each iteration of disease 
+  one_d <- list()
+  all_means <- matrix(nrow = length(MEsigma), ncol=9)
   
-  E <- as.integer(rnorm(N, mean = Emean, sd = Esigma))
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
+  # the separation at 900 might be overkill, but I think will help make our results comparable to theirs
+  # based on description of their exposure being evenly spaced
+  if (distrib == "UNIF"){
+    if (N < 900){E <- as.integer(seq(from = Eparam1, to = Eparam2, length.out = N)) 
+    } 
+    else if (N >= 900){E <- as.integer(runif(N, min = Eparam1, max = Eparam2)) }  
+  }
+  if (distrib == "NORM"){E <- as.integer(rnorm(N, mean = Eparam1, sd = Eparam2))
+  }  
   
-  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  params <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  
-  
-  for (j in seq_along(MEsigma)){
-    
-    for (i in 1:Nsims){
-      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
-      Eprime <- E + Eerror
-      Ehigh <- ifelse(E > cutpt, 1, 0)
-      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-      
-      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
-      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
-      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
-      
-      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
-      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
-      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
-      
-      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
-      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-    }
-    #  "N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
-    params[j,] <- cbind(N, Emean, Esigma, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-    
+  for (i in 1:Ndisease){
+    E <- E
+    D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) # this will be created Nsims times
+    one_d[[i]] <- measured_flegal(N, E, D, cutoff, MEsigma, Nsims)
+    # each run outputs a matrix with row = length(MEsigma), col = 9
   }
   
-  params <- as.data.frame(params) 
-  return(params)
-}
-```
-
-## Another attempt
-Decision to make: fix E distribution and try many fixed D, or many sims of E and D up top but E can also change? 
-```{r flegalfunctions2, eval = F}
-# trying to iterate through fixed disease for each ME sim, but simulate across different disease assignments as well
-flegal_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
-  intermedresults <- matrix(nrow = length(Nsims), ncol = 16)
-  allresults <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  
-  for (k in 1:Nsims){
-    E <- as.integer(seq(from = Emin, to = Emax, length.out = N))
-    D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-    
-    values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-    results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
-    
-    for (j in seq_along(MEsigma)){
-      
-      for (i in 1:Nsims){
-        Eerror <- rnorm(N, mean = 0, sd = MEsigma)
-        Eprime <- E + Eerror
-        Ehigh <- ifelse(E > cutpt, 1, 0)
-        Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-        
-        values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
-        values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
-        values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
-        
-        values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
-        values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
-        values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
-        
-        values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
-        values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-      }
-      # "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs"
-      results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-    # creates matrix with 3 rows  
-    }
-    # do I need to first create matrix to store all results: so nrows = Nsims, then bind those 
-    # want to create a matrix where I define rows 1, 2, 3 
-    # i have not run this - I am confused. 
-    intermedresults[k,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, results[1,8], results[1,9], results[1,10], results[1,11], results[1,12], results[1,13], results[1,14], results[1,15], results[1,16])
-    intermedresults[2,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, results[2,8], results[2,9], results[2,10], results[2,11], results[2,12], results[2,13], results[2,14], results[2,15], results[2,16])
-    intermedresults[3,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, results[3,8], results[3,9], results[3,10], results[3,11], results[3,12], results[3,13], results[3,14], results[3,15], results[3,16])
-   
-     allresults[1,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, mean(intermedresults[1,8]), mean(intermedresults[1,9]), mean(intermedresults[1,10]), mean(intermedresults[1,11]), mean(intermedresults[1,12]), mean(intermedresults[1,13]), mean(intermedresults[1,14]), mean(intermedresults[1,15]), mean(intermedresults[1,16]))
-  }
-  allresults <- as.data.frame(allresults)
-  return(allresults)
-}
-orange <- c(100, 300, 500)
-test1 <- flegal_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200)
-```
-
-
-```{r}  
-uni_sim_fixed <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
-  
-  E <- as.integer(runif(N, min = Emin, max = Emax))  
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-  
-  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  results <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  
-  
-  for (j in seq_along(MEsigma)){
-    
-    for (i in 1:Nsims){
-      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
-      Eprime <- E + Eerror
-      Ehigh <- ifelse(E > cutpt, 1, 0)
-      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-      
-      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
-      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
-      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
-      
-      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
-      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
-      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
-      
-      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
-      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-      
-    }
-    #  "N", "Emin", "Emax", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
-    results[j,] <- cbind(N, Emin, Emax, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-  }
-  
-  results <- as.data.frame(results)
-  return(results)
-  
+  all_means <- Reduce("+", one_d)/ length(one_d)
+  output <- as.data.frame(cbind(N, distrib, Eparam1, Eparam2, cutoff, a, b, Nsims, Ndisease, all_means))
+  return(output)
 }
 
-normal_sim_fixed <- function(N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims){
-  
-  E <- as.integer(rnorm(N, mean = Emean, sd = Esigma))
-  D <- rbinom(n = N, size = 1, p = plogis(a + b*E))
-  
-  values <- matrix(nrow = Nsims, ncol = 8, dimnames = list(c(), c("Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  params <- matrix(nrow = length(MEsigma), ncol = 16, dimnames = list(c(),c("N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs")))
-  
-  
-  for (j in seq_along(MEsigma)){
-    
-    for (i in 1:Nsims){
-      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
-      Eprime <- E + Eerror
-      Ehigh <- ifelse(E > cutpt, 1, 0)
-      Eprimehigh <- ifelse(Eprime > cutpt, 1, 0)
-      
-      values[i,1] <- sum(Eprimehigh==1 & Ehigh==1)/sum(Ehigh==1)
-      values[i,2] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1)
-      values[i,3] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1)
-      
-      values[i,4] <- sum(Eprimehigh==0 & Ehigh==0)/sum(Ehigh==0)
-      values[i,5] <- sum(Eprimehigh[D==1]==0 & Ehigh[D==1]==0)/sum(Ehigh[D==1]==0)
-      values[i,6] <- sum(Eprimehigh[D==0]==0 & Ehigh[D==0]==0)/sum(Ehigh[D==0]==0)
-      
-      values[i,7] <- (sum(D==1 & Ehigh==1)/sum(Ehigh==1))/(sum(D==1 & Ehigh==0)/sum(Ehigh==0))
-      values[i,8] <- (sum(D==1 & Eprimehigh==1)/sum(Eprimehigh==1))/(sum(D==1 & Eprimehigh==0)/sum(Eprimehigh==0))
-    }
-    #  "N", "Emean", "ESD", "cutoff", "a", "b", "Nsims", "ME", "Se", "SeD1", "SeD0", "Sp", "SpD1", "SpD0", "RRtrue", "RRobs"
-    params[j,] <- cbind(N, Emean, Esigma, cutpt, a, b, Nsims, MEsigma[[j]], mean(values[,1]), mean(values[,2]), mean(values[,3]), mean(values[,4]), mean(values[,5]), mean(values[,6]), mean(values[,7]), mean(values[,8]))
-    
-  }
-  
-  params <- as.data.frame(params) 
-  return(params)
-}
+newvar <- c(100, 300, 500)
+
+testcase <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -4.5, 0.0019, MEsigma, 100)
+
+testcase2 <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -4.5, 0.0019, newvar, 400)
+
 ```
 
 ##### Uniform distributions
@@ -291,29 +124,25 @@ So for the main simulations, they originally varied:
 and did 200 simulations of each on the nine combinations.  
 
 ```{r repeat}
-# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
-MEsigma <- c(100, 300, 500)
+# function arguments: N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsim
+# if distribution is UNIF, Eparam1 = E min, Eparam2 = E max
+# if distribution is NORM, Eparam1 = E mean, Eparam2 = standard deviation of exposure
 set.seed(303)
-# A, B, C reflect the different regression models/ RR
-
-case1A <- flegal_sim_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200)
-case1B <- flegal_sim_fixed(100, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 200)
-case1C <- flegal_sim_fixed(100, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 200)
+MEsigma <- c(100, 300, 500)
+case1A <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200, 10)
+case1B <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 200, 10)
+case1C <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 200, 10)
 
 case1 <- rbind(case1A, case1B, case1C)
 case1
 ```
 
 *Case 2* Repeating the same but with 1000 simulations. Everything else is same.  
-
-
 ```{r, case2}
 set.seed(303)
-# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
-# A, B, C reflect the different regression models/ RR
-case2A <- flegal_sim_fixed(100, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000)
-case2B <- flegal_sim_fixed(100, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
-case2C <- flegal_sim_fixed(100, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
+case2A <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
+case2B <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
+case2C <- simulate_flegal(100, "UNIF",1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
 
 case2 <- rbind(case2A, case2B, case2C)
 
@@ -325,34 +154,24 @@ case2
 Increasing the number of samples from **100** to **1000*.  
 From here on out, using 1,000 samples and 1,000 simulations.  
 Comparing results from both functions
-```{r case3, eval = F}
-set.seed(303)
+```{r case3}
 # function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
 # A, B, C reflect the different regression models/ RR
-case3A <- flegal_sim_fixed(1000, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000)
-case3B <- flegal_sim_fixed(1000, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
-case3C <- flegal_sim_fixed(1000, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
+set.seed(303)
+case3A <- simulate_flegal(1000, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
+case3B <- simulate_flegal(1000, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
+case3C <- simulate_flegal(1000, "UNIF", 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
 
-scase3 <- rbind(case3A, case3B, case3C)
-
-ucase3A <- uni_sim_fixed(1000, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000)
-ucase3B <- uni_sim_fixed(1000, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
-ucase3C <- uni_sim_fixed(1000, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
-
-ucase3 <- rbind(ucase3A, ucase3B, ucase3C)
-
-comp3 <- rbind(scase3, ucase3) #comparing how the seq vs. uniform functions do 
-
-case3 <- ucase3
+case3 <- rbind(case3A, case3B, case3C)
 ```
 
 *Case 4*  
 Increasing the number of samples to 100,000 (1,000,000 took too long)      
 ```{r case4, eval = F}
 set.seed(303)
-case4A <- uni_sim_fixed(100000, 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000)
-case4B <- uni_sim_fixed(100000, 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
-case4C <- uni_sim_fixed(100000, 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
+case4A <- simulate_flegal(100000, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
+case4B <- simulate_flegal(100000, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
+case4C <- simulate_flegal(100000, "UNIF", 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
 
 case4 <- rbind(case4A, case4B, case4C)
 case4
@@ -360,49 +179,51 @@ case4
 
 
 
-Previous range is 1,600 to 2,499. 
+Range under uniform distribution is 1,600 to 2,499. 
 If mean = midpoint of 2050, SD of 150 would make most of the values fall within 1,600 - 2,5000 range. 
 Is there reason to believe that the exposure distribution would be affected by probability of disease?   
 
 Normally distributed exposure:  
-*Case 5* Changing the exposure distribution to ~N(2050, 150)    
-*Case 6* Exposure distribution centered about midpoint  
+*Case 5* Changing the exposure distribution to centered about midpoint ~N(2050, 150)   
+*Case 6* Exposure distribution centered about cutpoint  
 *Case 7* Rare exposure (mean is lower than midpoint)  
 
-```{r normals, eval = F}
-set.seed(303)
-# A. a = -4.5, b = 0.0019; B. a = -8.0, b = 0.0035; C. a = -16.0, b = 0.0072
-# N, Emean, Esigma, cutpt, a, b, MEsigma, Nsims
-case5A <- normal_sim_fixed(1000, 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
-case5B <- normal_sim_fixed(1000, 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
-case5C <- normal_sim_fixed(1000, 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
+```{r normals}
+# function arguments: N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsim
+# if distribution is UNIF, Eparam1 = E min, Eparam2 = E max
+# if distribution is NORM, Eparam1 = E mean, Eparam2 = standard deviation of exposure
 
+MEsigma <- c(100, 300, 500)
+
+set.seed(303)
+case5A <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
+case5B <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
+case5C <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
 case5 <- rbind(case5A, case5B, case5C)
 
 ##### Other ~N
 # Case 6: Normal distribution around the cutpoint (mean 2,200)  
 # Case 7: exposure ~N but 'high' is rare (mean 1,900)
 # Case 8: big sample size
-
-case6A <- normal_sim_fixed(1000, 2200, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
-case6B <- normal_sim_fixed(1000, 2200, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
-case6C <- normal_sim_fixed(1000, 2200, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
-
+set.seed(303)
+case6A <- simulate_flegal(1000, "NORM", 2200, 150, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
+case6B <- simulate_flegal(1000, "NORM", 2200, 150, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
+case6C <- simulate_flegal(1000, "NORM", 2200, 150, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
 case6 <- rbind(case6A, case6B, case6C)
 
-case7A <- normal_sim_fixed(1000, 1900, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
-case7B <- normal_sim_fixed(1000, 1900, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
-case7C <- normal_sim_fixed(1000, 1900, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
-
+set.seed(303)
+case7A <- simulate_flegal(1000, "NORM", 1900, 150, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
+case7B <- simulate_flegal(1000, "NORM", 1900, 150, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
+case7C <- simulate_flegal(1000, "NORM", 1900, 150, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
 case7 <- rbind(case7A, case7B, case7C)
 ```
 
 
 ```{r huge, eval = FALSE}
 set.seed(303)
-case8A <- normal_sim_fixed(100000, 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
-case8B <- normal_sim_fixed(100000, 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
-case8C <- normal_sim_fixed(100000, 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
+case8A <- simulate_flegal(100000, "NORM", 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
+case8B <- simulate_flegal(100000, "NORM", 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
+case8C <- simulate_flegal(100000, "NORM", 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
 
 case8 <- rbind(case8A, case8B, case8C)
 ```
@@ -410,10 +231,8 @@ case8 <- rbind(case8A, case8B, case8C)
 
 ```{r savestuff, include = FALSE, eval = FALSE}
 # at this point, I typically export as csv but with uniform cases in one grouping and normal separately, since the variables retained are slightly different. I then create an xlsx to combine
-unifs <- rbind(case1, case2, case3, case4)
-norms <- rbind(case5, case6, case7, case8)
-write.csv(unifs, "uniform.csv")
-write.csv(norms, "normal.csv")
+all_cases <- rbind(case1, case2, case3, case5, case6, case7)
+write.csv(all_cases, "flegal_export_07Nov2022.csv")
 ```
 
 #### Disease not fixed at each simulation
