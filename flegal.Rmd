@@ -44,7 +44,7 @@ measured_flegal <- function(N, E, D, cutoff, MEsigma, Nsims){
   for (j in seq_along(MEsigma)){
     
     for (i in 1:Nsims){  
-      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+      Eerror <- rnorm(N, mean = 0, sd = MEsigma[[i]])
       Eprime <- E + Eerror
       Eprimehigh <- ifelse(Eprime > cutoff, 1, 0)
       
@@ -99,7 +99,7 @@ testcase2 <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -4.5, 0.0019, newvar
 ```{r createfunctions} 
 # if distribution is UNIF, Eparam1 = E min, Eparam2 = E max
 # if distribution is NORM, Eparam1 = E mean, Eparam2 = standard deviation of exposure
-simulate_flegalV3 <- function(N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsims){
+simulate_flegal <- function(N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsims){
   E <- c()
   D <- c()
   Ehigh <- c()
@@ -119,11 +119,11 @@ simulate_flegalV3 <- function(N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigm
     Ehigh <- ifelse(E > cutoff, 1, 0)
     
     for (i in seq_along(MEsigma)){
-      Eerror <- rnorm(N, mean = 0, sd = MEsigma)
+      Eerror <- rnorm(N, mean = 0, sd = MEsigma[i])
       Eprime <- E + Eerror
       Eprimehigh <- ifelse(Eprime > cutoff, 1, 0)
       
-      values[i,1] <- MEsigma[[i]] #this will be constant but want it to pass through
+      values[i,1] <- MEsigma[i] #this will be constant but want it to pass through
       values[i,2] <- sum(Eprimehigh[Ehigh==1]==1)/sum(Ehigh==1) #Se all
       values[i,3] <- sum(Eprimehigh[D==1]==1 & Ehigh[D==1]==1)/sum(Ehigh[D==1]==1) #Se D=1
       values[i,4] <- sum(Eprimehigh[D==0]==1 & Ehigh[D==0]==1)/sum(Ehigh[D==0]==1) #Se D=0
@@ -142,88 +142,9 @@ simulate_flegalV3 <- function(N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigm
   return(output)
 }
 
-newvar <- c(100, 300, 500)
-
-simulate_flegalV3(1000, "NORM", 2050, 150, 2200, -4.5, 0.0019, newvar, 100)
-
-simulate_flegalV3(1000, "EVEN", 1600, 2499, 2200, -4.5, 0.0019, newvar, 100)
-
-testcase2 <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -4.5, 0.0019, newvar, 400)
-
 ```
 
-Okay so I'm still getting different Se, Sp from flegal case. Trying to re-examine how I get the numbers.
-```{r createfunctions} 
-# if distribution is UNIF, Eparam1 = E min, Eparam2 = E max
-# if distribution is NORM, Eparam1 = E mean, Eparam2 = standard deviation of exposure
-simulate_flegalV3 <- function(N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsims){
-  E <- c()
-  D <- c()
-  Ehigh <- c()
-  Eerror <- c()
-  Eprime <- c()
-  Eprimehigh <- c()
-
-  values <- matrix(nrow = length(MEsigma), ncol = 11, dimnames = list(c(),c("MEsd", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue", "RRobs", "E prev", "Eprime prev")))
-  fakepop <- tibble()
-  popsum <- tibble()
-  results <- list()
-  all_means <- matrix(nrow = length(MEsigma), ncol=11)
-  output <- matrix(nrow = length(MEsigma), ncol = 19, dimnames = list(c(),c("N", "Distrib", "Eparam1", "Eparam2", "cutoff", "a", "b", "Nsims", "ME", "SeAll", "SeD1", "SeD0", "SpAll", "SpD1", "SpD0", "RRtrue","RRobs", "Eprev", "Eprimeprev")))
-  
-  for (j in 1:Nsims){
-    if (distrib == "UNIF"){E <- as.integer(runif(N, min = Eparam1, max = Eparam2))}  
-    if (distrib == "NORM"){E <- as.integer(rnorm(N, mean = Eparam1, sd = Eparam2))}
-    if (distrib == "EVEN"){E <- as.integer(seq(from = Eparam1, to = Eparam2, length.out = N))}
-    D <- rbinom(n = N, size = 1, p = plogis(a + b*E)) 
-    Ehigh <- ifelse(E > cutoff, 1, 0)
-    
-    for (i in seq_along(MEsigma)){
-      fakepop[[i]] <- tibble(E = E, Ehigh = ifelse(E>2200, 1, 0), D = D, 
-                  Eerror = rnorm(N, mean = 0, sd = MEsigma), Eprime = E + Eerror,
-                  Eprimehigh = ifelse(Eprime > cutoff, 1, 0))
-      popsum[[i]] <- fakepop[[i]] %>% group_by(D, Ehigh, Eprimehigh) %>% summarise(n=n(), .groups = "keep") 
-      
-      values[i,1] <- MEsigma[[i]] #this will be constant but want it to pass through
-      values[i,2] <- (popsum[4,4] + popsum[8,4])/ (popsum[3,4] + popsum[4,4] + popsum[7,4] + popsum[8,4]) #Se all
-      values[i,3] <- (popsum[4,4])/ (popsum[3,4] + popsum[4,4]) #Se D=1
-      values[i,4] <- (popsum[8,4])/ (popsum[7,4] + popsum[8,4])#Se D=0
-      values[i,5] <- (popsum[1,4] + popsum[5,4])/ (popsum[1,4] + popsum[2,4] + popsum[5,4] + popsum[6,4]) #Sp all
-      values[i,6] <- (popsum[1,4])/ (popsum[1,4] + popsum[2,4]) #Sp D=1
-      values[i,7] <- (popsum[5,4])/ (popsum[5,4] + popsum[6,4])  #Sp D=0
-      values[i,8] <- (popsum[7,4] + popsum[8,4]) / (popsum[3,4] + popsum[4,4] + popsum[7,4] + popsum[8,4]) #RR
-      values[i,9] <- (popsum[6,4] + popsum[8,4]) / (popsum[2,4] + popsum[4,4] + popsum[6,4] + popsum[8,4]) #RR measured
-      values[i,10] <- sum(fakepop$Ehigh == 1)/N
-      values[i,11] <- sum(fakepop$Eprimehigh == 1)/N #measured exposure prevalence
-    }
-    results[[j]] <- values
-  }
-  all_means <- Reduce("+", results)/ length(results)
-  output <- as.data.frame(cbind(N, distrib, Eparam1, Eparam2, cutoff, a, b, Nsims, all_means))
-  return(output)
-}
-
-newvar <- c(100, 300, 500)
-
-simulate_flegalV3(100, "EVEN", 2050, 150, 2200, -4.5, 0.0019, newvar, 200)
-
-testcase2 <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -4.5, 0.0019, newvar, 400)
-
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-##### Results
+*Case 1* Repeating the original simulation
 
 So for the main simulations, they originally varied:  
 
@@ -231,70 +152,63 @@ So for the main simulations, they originally varied:
 * three sets of (a, b) parameters for disease: (-4.5, 0.0019), (-8.0, 0.0035), (-16.0, 0.0072)  
 and did 200 simulations of each on the nine combinations.  
 
-```{r repeat}
-# function arguments: N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsim
-# if distribution is UNIF, Eparam1 = E min, Eparam2 = E max
+```{r repeatflegal}
+# function arguments: N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsims
+# if distribution is UNIF or EVEN, Eparam1 = E min, Eparam2 = E max
 # if distribution is NORM, Eparam1 = E mean, Eparam2 = standard deviation of exposure
-set.seed(303)
+# A, B, C reflect the different regression models/ RR
 MEsigma <- c(100, 300, 500)
-case1A <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200, 10)
-case1B <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 200, 10)
-case1C <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 200, 10)
+set.seed(303)
+case1A <- simulate_flegal(100, "EVEN", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200)
+case1B <- simulate_flegal(100, "EVEN", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 200)
+case1C <- simulate_flegal(100, "EVEN", 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 200)
 
 case1 <- rbind(case1A, case1B, case1C)
-case1
 ```
 
-*Case 2* Repeating the same but with 1000 simulations. Everything else is same.  
+*Case 2* Repeating, but uniform distribution rather than even spacing
 ```{r, case2}
 set.seed(303)
-case2A <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
-case2B <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
-case2C <- simulate_flegal(100, "UNIF",1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
+case2A <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 200)
+case2B <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 200)
+case2C <- simulate_flegal(100, "UNIF",1600, 2499, 2200, -16.0, 0.0072, MEsigma, 200)
 
 case2 <- rbind(case2A, case2B, case2C)
-
-case2
 ```
 
 
 *Case 3*  
-Increasing the number of samples from **100** to **1000*.  
-From here on out, using 1,000 samples and 1,000 simulations.  
-Comparing results from both functions
+Increasing the number of simulations from 200 to 1,000  
 ```{r case3}
-# function arguments: N, Emin, Emax, cutpt, a, b, Nsigma, MEsigma, Nsims
-# A, B, C reflect the different regression models/ RR
+# function arguments: N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsims
 set.seed(303)
-case3A <- simulate_flegal(1000, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
-case3B <- simulate_flegal(1000, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
-case3C <- simulate_flegal(1000, "UNIF", 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
+case3A <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000)
+case3B <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
+case3C <- simulate_flegal(100, "UNIF", 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
 
 case3 <- rbind(case3A, case3B, case3C)
 ```
 
 *Case 4*  
-Increasing the number of samples to 100,000 (1,000,000 took too long)      
+Increasing number of samples 
 ```{r case4, eval = F}
 set.seed(303)
-case4A <- simulate_flegal(100000, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
-case4B <- simulate_flegal(100000, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
-case4C <- simulate_flegal(100000, "UNIF", 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
+case4A <- simulate_flegal(10000, "UNIF", 1600, 2499, 2200, -4.5, 0.0019, MEsigma, 1000)
+case4B <- simulate_flegal(10000, "UNIF", 1600, 2499, 2200, -8.0, 0.0035, MEsigma, 1000)
+case4C <- simulate_flegal(10000, "UNIF", 1600, 2499, 2200, -16.0, 0.0072, MEsigma, 1000)
 
 case4 <- rbind(case4A, case4B, case4C)
-case4
 ```
 
 
 
 Range under uniform distribution is 1,600 to 2,499. 
-If mean = midpoint of 2050, SD of 150 would make most of the values fall within 1,600 - 2,5000 range. 
-Is there reason to believe that the exposure distribution would be affected by probability of disease?   
+If mean = midpoint of 2050, SD of 150 would make most of the values fall within 1,600 - 2,5000 range.    
 
 Normally distributed exposure:  
-*Case 5* Changing the exposure distribution to centered about midpoint ~N(2050, 150)   
-*Case 6* Exposure distribution centered about cutpoint  
-*Case 7* Rare exposure (mean is lower than midpoint)  
+*Case 5* Exposure distribution centered about cutpoint   
+*case 6* Changing the exposure distribution to centered about midpoint ~N(2050, 150)   
+*Case 7* Rare exposure (mean is lower than midpoint)   
 
 ```{r normals}
 # function arguments: N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsim
@@ -304,9 +218,9 @@ Normally distributed exposure:
 MEsigma <- c(100, 300, 500)
 
 set.seed(303)
-case5A <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
-case5B <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
-case5C <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
+case5A <- simulate_flegal(1000, "NORM", 2200, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
+case5B <- simulate_flegal(1000, "NORM", 2200, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
+case5C <- simulate_flegal(1000, "NORM", 2200, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
 case5 <- rbind(case5A, case5B, case5C)
 
 ##### Other ~N
@@ -314,24 +228,24 @@ case5 <- rbind(case5A, case5B, case5C)
 # Case 7: exposure ~N but 'high' is rare (mean 1,900)
 # Case 8: big sample size
 set.seed(303)
-case6A <- simulate_flegal(1000, "NORM", 2200, 150, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
-case6B <- simulate_flegal(1000, "NORM", 2200, 150, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
-case6C <- simulate_flegal(1000, "NORM", 2200, 150, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
+case6A <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
+case6B <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
+case6C <- simulate_flegal(1000, "NORM", 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
 case6 <- rbind(case6A, case6B, case6C)
 
 set.seed(303)
-case7A <- simulate_flegal(1000, "NORM", 1900, 150, 2200, -4.5, 0.0019, MEsigma, 1000, 100)
-case7B <- simulate_flegal(1000, "NORM", 1900, 150, 2200, -8.0, 0.0035, MEsigma, 1000, 100)
-case7C <- simulate_flegal(1000, "NORM", 1900, 150, 2200, -16.0, 0.0072, MEsigma, 1000, 100)
+case7A <- simulate_flegal(1000, "NORM", 1900, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
+case7B <- simulate_flegal(1000, "NORM", 1900, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
+case7C <- simulate_flegal(1000, "NORM", 1900, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
 case7 <- rbind(case7A, case7B, case7C)
 ```
 
 
-```{r huge, eval = FALSE}
+```{r more, eval = FALSE}
 set.seed(303)
-case8A <- simulate_flegal(100000, "NORM", 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
-case8B <- simulate_flegal(100000, "NORM", 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
-case8C <- simulate_flegal(100000, "NORM", 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
+case8A <- simulate_flegal(10000, "NORM", 2050, 150, 2200, -4.5, 0.0019, MEsigma, 1000)
+case8B <- simulate_flegal(10000, "NORM", 2050, 150, 2200, -8.0, 0.0035, MEsigma, 1000)
+case8C <- simulate_flegal(10000, "NORM", 2050, 150, 2200, -16.0, 0.0072, MEsigma, 1000)
 
 case8 <- rbind(case8A, case8B, case8C)
 ```
@@ -339,11 +253,87 @@ case8 <- rbind(case8A, case8B, case8C)
 
 ```{r savestuff, include = FALSE, eval = FALSE}
 # at this point, I typically export as csv but with uniform cases in one grouping and normal separately, since the variables retained are slightly different. I then create an xlsx to combine
-all_cases <- rbind(case1, case2, case3, case5, case6, case7)
-write.csv(all_cases, "flegal_export_07Nov2022.csv")
+all_cases <- rbind(case1, case2, case3, case4, case5, case6, case7)
+write.csv(all_cases, "flegal_export_132022.csv")
 ```
 
 
+#### Recreating original figures  
+
+E true exposure values, 100 samples evenly spaced over specified interval  
+E' measured exposure values: true + error term, where Error terms ~N with mean 0, "specified" SD  
+true exposure values range integers 1,600 - 2,499, high/low cutoff of 2,200  
+standard deviation of measurement error varied at 100, 300, 500  
+
+They first look at misclassification close to cutpoints of 2,000 and 2,200. Figure 1 plots the measured exposure values (Y axis) against the true exposure values (X axis) at two cutpoints.
+
+```{r fig1}
+pop0 <- tibble(E = as.integer(seq(from = 1600, to = 2499, length.out = 100)), 
+               Eerror = rnorm(100, mean = 0, sd = 150), 
+               Eprime = E + Eerror, 
+               E_high = ifelse(E > 2200, 1, 0), 
+               Eprime_high = ifelse(Eprime > 2200,1, 0),
+               E_mis = ifelse(E_high != Eprime_high, 1, 0), 
+               D = rbinom(n = 100, size = 1, p = plogis(-10 + 0.004*E))
+)
+
+sp1 <- ggplot(pop0, aes(x = E, y = Eprime)) + geom_point() + scale_x_continuous(limits = c(1400, 2600), breaks = seq(1400,2600, 200)) + scale_y_continuous(limits = c(1200, 2800), breaks = seq(1200,2800, 200)) + theme_bw()
+
+Figure1a <- sp1 + labs(title = "Cutpoint of 2,000", x = "True Value", y = "Measured Value") + geom_vline(xintercept = 2000) + geom_hline(yintercept = 2000, linetype = "dashed") 
+# Figure1a
+
+Figure1b <- sp1 + labs(title = "Original scenario (n = 100)", x = "True Value", y = "Measured Value") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
+# Figure1b
+```
+
+### Probability of misclassification and probability of disease
+p probability of disease for each true exposure value, linear logistic model  ln(p/1-p) = a + b*E  
+parameters a, b  
+disease status 0 or 1 based on binomial n=1, prob of success = p from above  
+Probability of misclassification is based on cumulative normal distribution. I based it on the difference between true value of E and the cutpoint; expected difference is 0.  
+
+Figure 2 shows:  
+
+1. expected probability of disease for a linear logistic model (a = -10, b = 0.004) AND  
+2. probability of misclassification into low- and high- exposure based on normally distributed exposure measurement error (mean = 0, standard deviation = 150) 
+
+Figure 3 shows: 
+
+1. the expected probability of disease p as a quadratic function of the true exposure value E (p = 6.592 - 0.00673.E + 0.00000112E^2) over the specified range of values AND  
+2. probability of misclassification (as in fig 2) 
+
+```{r probD}
+# expected probability of disease 
+prob_D <- glm(D ~ E, data = pop0, family = binomial)
+expected_pD <- predict(prob_D, pop0, type = "response")
+
+# probability of misclassification
+pop0$E_diff <- abs(pop0$E-2200)
+pop0$a <- 1 - pnorm(pop0$E_diff, 0, 150)
+# ggplot(pop, aes(x = E, y = a))+ geom_line() + geom_vline(xintercept = 2200) + theme_bw()
+
+# Figure 2
+flegal_figure2 <- ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 2. Prob of misclassification (dashed) & prob of disease (solid)", x = "True Value", y = "Probability")
+flegal_figure2
+
+# expected probability of disease p as a quadratic function of E
+pop0$expected_pD_quad <- 6.592 - 0.00673*pop0$E + 0.00000172*(pop0$E**2)
+
+# Figure 3:
+flegal_figure3 <- ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD_quad)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 3. Prob of misclassification (dashed) & prob of disease, quadratic term (solid)", x = "True Value", y = "Probability")
+
+# probability of misclassification, varied SD to match simulation conditions
+pop0$a100 <- 1 - pnorm(pop0$E_diff, 0, 100)
+pop0$a300 <- 1 - pnorm(pop0$E_diff, 0, 300)
+pop0$a500 <- 1 - pnorm(pop0$E_diff, 0, 500)
+
+ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD), color = "darkgrey") + geom_line(aes(y = a), linetype = 2) + geom_line(aes(y = a100), color = "green") + geom_line(aes(y = a300), color = "green3") + geom_line(aes(y = a500), color = "darkgreen") + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Prob of misclassification & prob of disease (solid)", x = "True Value", y = "Probability")
+
+```
+The green lines are the expected probabilities of misclassification. 
+
+Flegal et al. plot the probability of misclassification as a function of the distribution of the measurement error; not sure that it is actually the probability of misclassification? 
+Why did they do that?? I think it may be more appropriate to simulate it and maybe re-create the population 100 times then get the proportion who were classified for each value of the exposure. Idk.
 
 ```{r morefunctions, eval = F}
 uni_sim <- function(N, Emin, Emax, cutpt, a, b, MEsigma, Nsims){
@@ -505,7 +495,6 @@ set.seed(30308)
 
 # case 1 is repeating the simulations from the paper 
 # A. a = -4.5, b = 0.0019 
-
 scenarioA1_100 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 100, 200)
 scenarioA1_300 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 300, 200)
 scenarioA1_500 <- flegal_sim(200, 1600, 2499, 2200, -4.5, 0.0019, 500, 200)
@@ -520,81 +509,4 @@ scenarioC1_500 <- flegal_sim(200, 1600, 2499, 2200, -16.0, 0.0072, 500, 200)
 scenario1 <- rbind(scenarioA1_100, scenarioA1_300, scenarioA1_500, scenarioB1_100, scenarioB1_300, scenarioB1_500, scenarioC1_100, scenarioC1_300, scenarioC1_500)
 ```
 
-
-#### Recreating original figures  
-
-E true exposure values, 100 samples evenly spaced over specified interval  
-E' measured exposure values: true + error term, where Error terms ~N with mean 0, "specified" SD  
-true exposure values range integers 1,600 - 2,499, high/low cutoff of 2,200  
-standard deviation of measurement error varied at 100, 300, 500  
-
-They first look at misclassification close to cutpoints of 2,000 and 2,200. Figure 1 plots the measured exposure values (Y axis) against the true exposure values (X axis) at two cutpoints.
-
-```{r fig1}
-pop0 <- tibble(E = as.integer(seq(from = 1600, to = 2499, length.out = 100)), 
-               Eerror = rnorm(100, mean = 0, sd = 150), 
-               Eprime = E + Eerror, 
-               E_high = ifelse(E > 2200, 1, 0), 
-               Eprime_high = ifelse(Eprime > 2200,1, 0),
-               E_mis = ifelse(E_high != Eprime_high, 1, 0), 
-               D = rbinom(n = 100, size = 1, p = plogis(-10 + 0.004*E))
-)
-
-sp1 <- ggplot(pop0, aes(x = E, y = Eprime)) + geom_point() + scale_x_continuous(limits = c(1400, 2600), breaks = seq(1400,2600, 200)) + scale_y_continuous(limits = c(1200, 2800), breaks = seq(1200,2800, 200)) + theme_bw()
-
-Figure1a <- sp1 + labs(title = "Cutpoint of 2,000", x = "True Value", y = "Measured Value") + geom_vline(xintercept = 2000) + geom_hline(yintercept = 2000, linetype = "dashed") 
-# Figure1a
-
-Figure1b <- sp1 + labs(title = "Original scenario (n = 100)", x = "True Value", y = "Measured Value") + geom_vline(xintercept = 2200) + geom_hline(yintercept = 2200, linetype = "dashed")
-# Figure1b
-```
-
-### Probability of misclassification and probability of disease
-p probability of disease for each true exposure value, linear logistic model  ln(p/1-p) = a + b*E  
-parameters a, b  
-disease status 0 or 1 based on binomial n=1, prob of success = p from above  
-Probability of misclassification is based on cumulative normal distribution. I based it on the difference between true value of E and the cutpoint; expected difference is 0.  
-
-Figure 2 shows:  
-
-1. expected probability of disease for a linear logistic model (a = -10, b = 0.004) AND  
-2. probability of misclassification into low- and high- exposure based on normally distributed exposure measurement error (mean = 0, standard deviation = 150) 
-
-Figure 3 shows: 
-
-1. the expected probability of disease p as a quadratic function of the true exposure value E (p = 6.592 - 0.00673.E + 0.00000112E^2) over the specified range of values AND  
-2. probability of misclassification (as in fig 2) 
-
-```{r probD}
-# expected probability of disease 
-prob_D <- glm(D ~ E, data = pop0, family = binomial)
-expected_pD <- predict(prob_D, pop0, type = "response")
-
-# probability of misclassification
-pop0$E_diff <- abs(pop0$E-2200)
-pop0$a <- 1 - pnorm(pop0$E_diff, 0, 150)
-# ggplot(pop, aes(x = E, y = a))+ geom_line() + geom_vline(xintercept = 2200) + theme_bw()
-
-# Figure 2
-flegal_figure2 <- ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 2. Prob of misclassification (dashed) & prob of disease (solid)", x = "True Value", y = "Probability")
-flegal_figure2
-
-# expected probability of disease p as a quadratic function of E
-pop0$expected_pD_quad <- 6.592 - 0.00673*pop0$E + 0.00000172*(pop0$E**2)
-
-# Figure 3:
-flegal_figure3 <- ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD_quad)) + geom_line(aes(y = a), linetype = 2) + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Fig 3. Prob of misclassification (dashed) & prob of disease, quadratic term (solid)", x = "True Value", y = "Probability")
-
-# probability of misclassification, varied SD to match simulation conditions
-pop0$a100 <- 1 - pnorm(pop0$E_diff, 0, 100)
-pop0$a300 <- 1 - pnorm(pop0$E_diff, 0, 300)
-pop0$a500 <- 1 - pnorm(pop0$E_diff, 0, 500)
-
-ggplot(pop0, aes(x = E)) + geom_line(aes(y = expected_pD), color = "darkgrey") + geom_line(aes(y = a), linetype = 2) + geom_line(aes(y = a100), color = "green") + geom_line(aes(y = a300), color = "green3") + geom_line(aes(y = a500), color = "darkgreen") + geom_vline(xintercept = 2200) + theme_bw() + labs(title = "Prob of misclassification & prob of disease (solid)", x = "True Value", y = "Probability")
-
-```
-The green lines are the expected probabilities of misclassification. 
-
-Flegal et al. plot the probability of misclassification as a function of the distribution of the measurement error; not sure that it is actually the probability of misclassification? 
-Why did they do that?? I think it may be more appropriate to simulate it and maybe re-create the population 100 times then get the proportion who were classified for each value of the exposure. Idk.
 
