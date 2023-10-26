@@ -1,5 +1,6 @@
 # Chrystelle Kiang
 # Last edited: Oct 26, 2023
+# this code creates a function that takes the example by Flegal et al. 
 library(here)
 library(tidyverse)
 
@@ -80,14 +81,14 @@ simulate_misclass <- function(N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigm
 # if distribution is UNIF or EVEN, Eparam1 = E min, Eparam2 = E max
 # if distribution is NORM, Eparam1 = E mean, Eparam2 = standard deviation of exposure
 
-# N, distrib, Eparam1, Eparam2, cutoff, a, b, MEsigma, Nsims
-
+# These are all the scenarios we considered in the paper
 simulation_parameters <- list(
   # repeating the simulation by Flegal et al.
   list(N = 100, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -4.5, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 200),
   list(N = 100, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -8.0, b = 0.0035, MEsigma = c(100, 300, 500), Nsims = 200),
   list(N = 100, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -16.0, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 200),
-  # repeating again, but with increased N and # simulations
+ 
+   # repeating again, but with increased N and # simulations
   list(N = 10000, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -4.5, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 1000),
   list(N = 10000, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -8.0, b = 0.0035, MEsigma = c(100, 300, 500), Nsims = 1000),
   list(N = 10000, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -16.0, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 1000),
@@ -107,10 +108,10 @@ simulation_parameters <- list(
   list(N = 10000, distrib = "normal", Eparam1 = 1900, Eparam2 = 150, cutoff = 2200, a = -8.5, b = 0.0035, MEsigma = c(100, 300, 500), Nsims = 1000),
   list(N = 10000, distrib = "normal", Eparam1 = 1900, Eparam2 = 150, cutoff = 2200, a = -16.1, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 1000)
 )
+# one could do this differently; but this is how I chose to run all scenarios discussed in paper
+# can create a new list and/or just run one at a time
 
-# if simulation_results is ran as-is, should get exact same results 
-# should still get pretty close results anyway if N and Nsims are large
-
+# running the desired scenarios and compiling results from each scenario
 set.seed(404) 
 simulation_results <- lapply(simulation_parameters, function(param){
   result_matrix <- simulate_misclass(param$N, param$distrib, param$Eparam1, param$Eparam2, param$cutoff, 
@@ -119,6 +120,9 @@ simulation_results <- lapply(simulation_parameters, function(param){
     mutate_at(c('SeD1', 'SeD0', 'SpD1', 'SpD0'), as.numeric) %>%
     mutate(SeDiff = SeD1 - SeD0, SpDiff = SpD1 - SpD0)
 })
+# if simulation_results is ran as-is, should get exact same results 
+# expect to still get pretty close results anyway if N and Nsims are large
+
 
 # code below is a clunky way to re-organize columns and prepare for export
 # TODO clean up
@@ -144,10 +148,8 @@ View(all_simulation_results)
 # ideal plan: import csv to quarto file and create table and etc there
 
 #####################
-# example code to run just one instance: 
-
+# example code to run one scenario: 
 simulate_misclass(N = 100, distrib = "even", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -4.5, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 200) 
-
 simulate_misclass(N = 100, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -4.5, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 200) 
 simulate_misclass(N = 10000, distrib = "normal", Eparam1 = 2050, Eparam2 = 150, cutoff = 2200, a = -18.75, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 1000)
 
