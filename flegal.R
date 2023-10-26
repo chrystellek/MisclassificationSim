@@ -1,9 +1,7 @@
 # Chrystelle Kiang
-# Last edited: Aug 9, 2023
+# Last edited: Oct 26, 2023
 library(here)
 library(tidyverse)
-library(kableExtra)
-library(officer)
 
 #######################################
 # function inputs: 
@@ -122,6 +120,8 @@ simulation_results <- lapply(simulation_parameters, function(param){
     mutate(SeDiff = SeD1 - SeD0, SpDiff = SpD1 - SpD0)
 })
 
+# code below is a clunky way to re-organize columns and prepare for export
+# TODO clean up
 wanted_order <- c("N", "distrib", "Eparam1", "Eparam2", "a",
                   "b", "Nsims", "MEsd", "SeAll", "SeD1", "SeD0", "SeDiff", 
                   "SpAll", "SpD1", "SpD0", "SpDiff", "RRtrue", "RRobs",
@@ -134,13 +134,13 @@ reordered_simulation_results <- map(simulation_results, ~ .x %>%
 simulation_results_transposed <- lapply(reordered_simulation_results, t)
 
 stacked_results <- do.call(rbind, simulation_results_transposed)
-View(stacked_results)
 
 write.csv(stacked_results, file = "Aug11output.csv", row.names = TRUE)
 
 all_simulation_results <- do.call(rbind, reordered_simulation_results)
 write.csv(all_simulation_results, file = "AUg15output.csv")
 View(all_simulation_results)
+
 # ideal plan: import csv to quarto file and create table and etc there
 
 #####################
@@ -150,31 +150,4 @@ simulate_misclass(N = 100, distrib = "even", Eparam1 = 1600, Eparam2 = 2499, cut
 
 simulate_misclass(N = 100, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -4.5, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 200) 
 simulate_misclass(N = 10000, distrib = "normal", Eparam1 = 2050, Eparam2 = 150, cutoff = 2200, a = -18.75, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 1000)
-######################
-# exploratory
-extreme_params <- list(
-  # repeating the simulation by Flegal et al.
-  list(N = 100, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -4.5, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 200),
-  list(N = 100, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -8.0, b = 0.0035, MEsigma = c(100, 300, 500), Nsims = 200),
-  list(N = 100, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -16.0, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 200),
-  # repeating again, but with increased N and # simulations
-  list(N = 10000, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -4.5, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 1000),
-  list(N = 10000, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -8.0, b = 0.0035, MEsigma = c(100, 300, 500), Nsims = 1000),
-  list(N = 10000, distrib = "uniform", Eparam1 = 1600, Eparam2 = 2499, cutoff = 2200, a = -16.0, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 1000),
-  
-  # Normal centered about high/low cut point
-  list(N = 10000, distrib = "normal", Eparam1 = 2200, Eparam2 = 150, cutoff = 2200, a = -9.5, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 1000),
-  list(N = 10000, distrib = "normal", Eparam1 = 2200, Eparam2 = 150, cutoff = 2200, a = -13, b = 0.0035, MEsigma = c(100, 300, 500), Nsims = 1000),
-  list(N = 10000, distrib = "normal", Eparam1 = 2200, Eparam2 = 150, cutoff = 2200, a = -18.75, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 1000),
-  
-  # Normal centered about midpoint 
-  list(N = 10000, distrib = "normal", Eparam1 = 2050, Eparam2 = 150, cutoff = 2200, a = -8.5, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 1000),
-  list(N = 10000, distrib = "normal", Eparam1 = 2050, Eparam2 = 150, cutoff = 2200, a = -11.5, b = 0.0035, MEsigma = c(100, 300, 500), Nsims = 1000),
-  list(N = 10000, distrib = "normal", Eparam1 = 2050, Eparam2 = 150, cutoff = 2200, a = -18.2, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 1000),
-  
-  # Normal(1900, 150) mimic a rare exposure 
-  list(N = 10000, distrib = "normal", Eparam1 = 1900, Eparam2 = 150, cutoff = 2200, a = -5.1, b = 0.0019, MEsigma = c(100, 300, 500), Nsims = 1000),
-  list(N = 10000, distrib = "normal", Eparam1 = 1900, Eparam2 = 150, cutoff = 2200, a = -8.5, b = 0.0035, MEsigma = c(100, 300, 500), Nsims = 1000),
-  list(N = 10000, distrib = "normal", Eparam1 = 1900, Eparam2 = 150, cutoff = 2200, a = -16.1, b = 0.0072, MEsigma = c(100, 300, 500), Nsims = 1000)
-)
 
