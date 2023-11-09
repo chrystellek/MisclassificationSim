@@ -1,5 +1,5 @@
 # Chrystelle Kiang
-# Code for illustrative example 
+# Code for illustrative example for bias due to misclassification
 library(tidyverse)
 library(ggplot2)
 library(patchwork) # package for plot arranging
