@@ -10,7 +10,6 @@ library(patchwork) # package for plot arranging
 # Can't use the misclassified function because it summarizes all the simulations
 # This code is only for 1 simulation/instance, but same steps 
 
-
 # set population size 
 pop_size <- 10000
 

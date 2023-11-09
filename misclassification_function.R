@@ -1,6 +1,6 @@
 # Chrystelle Kiang
-# Last edited: Nov 9, 2023
-# this code creates a function that takes the example by Flegal et al. 
+# this code creates a function that builds on the example by Flegal et al. 
+# then runs examples from paper
 library(here)
 library(tidyverse)
 
